@@ -19,6 +19,8 @@ jobs:
         with:
           distribution: 'temurin'
           java-version: ${{ matrix.java }}
+      - name: prepare Gradle
+        run: mkdir -p ~/.gradle && echo "org.gradle.daemon=false" >> ~/.gradle/gradle.properties
       - run: ./gradlew --no-daemon build -s
       - name: Publish Build
         uses: actions/upload-artifact@v2
@@ -31,30 +33,43 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-        with:
-          fetch-depth: '0'
       - name: Setup java
         uses: actions/setup-java@v2
         with:
           distribution: 'temurin'
           java-version: '11'
+      - name: prepare Gradle
+        run: mkdir -p ~/.gradle && echo "org.gradle.daemon=false" >> ~/.gradle/gradle.properties
       - name: check
-        run: ./gradlew build -xtest -xgoogleJavaFormat
+        run: ./gradlew --no-daemon build -xtest -xgoogleJavaFormat
+      - name: create template
+        run: |
+          VIOLATION_TEMPLATE=$(cat << EOF
+          {{violation.message}}
+          EOF
+          )
+          echo "VIOLATION_TEMPLATE<<EOF" >> $GITHUB_ENV
+          echo "$VIOLATION_TEMPLATE" >> $GITHUB_ENV
+          echo "EOF" >> $GITHUB_ENV
       - name: Spotbugs
         uses: tomasbjerre/violation-comments-action@master
         with:
           parser: FINDBUGS
           regexp: '.*spotbugs/main\.xml$'
           keepOldComments: false
+          commentTemplate: ${{ env.VIOLATION_TEMPLATE }}
       - name: Checkstyle
         uses: tomasbjerre/violation-comments-action@master
         with:
           parser: CHECKSTYLE
           regexp: '.*checkstyle/main\.xml$'
           keepOldComments: true
+          commentTemplate: ${{ env.VIOLATION_TEMPLATE }}
       - name: PMD
         uses: tomasbjerre/violation-comments-action@master
         with:
           parser: PMD
           regexp: '.*pmd/main\.xml$'
           keepOldComments: true
+          commentTemplate: ${{ env.VIOLATION_TEMPLATE }}
+
