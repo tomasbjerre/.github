@@ -44,13 +44,16 @@ jobs:
         with:
           parser: FINDBUGS
           regexp: '.*spotbugs/main\.xml$'
+          keepOldComments: false
       - name: Checkstyle
         uses: tomasbjerre/violation-comments-action@master
         with:
           parser: CHECKSTYLE
           regexp: '.*checkstyle/main\.xml$'
+          keepOldComments: true
       - name: PMD
         uses: tomasbjerre/violation-comments-action@master
         with:
           parser: PMD
           regexp: '.*pmd/main\.xml$'
+          keepOldComments: true
