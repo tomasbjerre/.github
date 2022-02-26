@@ -29,7 +29,7 @@ jobs:
           name: build-${{ github.run_number }}-${{ matrix.os }}-${{ matrix.java }}
           path: ${{ github.workspace }}
   static-code-analysis:
-    if: ${{ github.head_ref != github.base_ref }} # if it is a PR build
+    if: ${{ github.event_name == 'pull_request' || github.head_ref != github.base_ref }} # if it is a PR build
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
