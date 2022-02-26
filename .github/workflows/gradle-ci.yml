@@ -28,6 +28,13 @@ jobs:
         with:
           name: build-${{ github.run_number }}-${{ matrix.os }}-${{ matrix.java }}
           path: ${{ github.workspace }}
+      - name: Test Report
+        uses: dorny/test-reporter@v1
+        if: success() || failure()
+        with:
+          name: Test report
+          path: build/**/TEST-*.xml
+          reporter: java-junit
   static-code-analysis:
     if: ${{ github.event_name == 'pull_request' || github.head_ref != github.base_ref }} # if it is a PR build
     runs-on: ubuntu-latest
