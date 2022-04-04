@@ -15,8 +15,11 @@ jobs:
         with:
           fetch-depth: '0'
       - run: |
+          git remote remove origin
+          git remote add origin git@github.com:${GITHUB_REPOSITORY}.git
           git branch -a
           git tag
+          git remote -v
       - name: Setup java
         uses: actions/setup-java@v2
         with:
