@@ -8,28 +8,44 @@ jobs:
     strategy:
       matrix:
         java: [ '8', '11' ]
-        os: [ 'ubuntu-latest', 'macos-latest', 'windows-latest' ]
+        #os: [ 'ubuntu-latest', 'macos-latest', 'windows-latest' ]
+        os: [ 'ubuntu-latest', 'macos-latest' ]
     name: Java ${{ matrix.Java }} (${{ matrix.os }})
     steps:
       - uses: actions/checkout@v3
         with:
           fetch-depth: '0'
+      #- name: "Setup Git"
+      #  shell: bash
+      #  run: |
       - run: |
           git remote -v
           git remote remove origin
-          git remote add origin git@github.com:${GITHUB_REPOSITORY}.git
-          git remote -v
-          git branch -r
-          git branch -r \
-            | grep -v pull \
-            | grep -v '\->' \
-            | sed "s,\x1B\[[0-9;]*[a-zA-Z],,g" \
-            | while read remote; do git branch --track "${remote#origin/}" "$remote"; done
+          #git branch -r
+          #git branch -r \
+          #  | grep -v pull \
+          #  | grep -v '\->' \
+          #  | sed "s,\x1B\[[0-9;]*[a-zA-Z],,g" \
+          #  | while read remote; do git branch --track "${remote#origin/}" "$remote"; done
           #git checkout ${GITHUB_REF}
           #git fetch --all
           #git pull --all
+          # https://stackoverflow.com/a/4754797/2477084
+          git branch --all
+          for branch in $(
+            git branch --all \
+              | grep '^\s*remotes' \
+              | egrep --invert-match '(:?HEAD|remotes/pull/[0-9]+/merge)$' \
+              | sed -e "s/^remotes\/origin\///"
+          ); do
+              echo setting up $branch
+              git checkout $branch
+              git checkout -
+          done
           git branch -a
           git tag
+          git remote add origin git@github.com:${GITHUB_REPOSITORY}.git
+          git remote -v
       - name: Setup java
         uses: actions/setup-java@v2
         with:
