@@ -28,12 +28,12 @@ jobs:
           #  | sed "s,\x1B\[[0-9;]*[a-zA-Z],,g" \
           #  | while read remote; do git branch --track "${remote#origin/}" "$remote"; done
           #git checkout ${GITHUB_REF}
-          #git fetch --all
+          git fetch --all
           #git pull --all
           # https://stackoverflow.com/a/4754797/2477084
-          git branch --all
+          git branch -r
           for branch in $(
-            git branch --all \
+            git branch -r \
               | grep '^\s*remotes' \
               | egrep --invert-match '(:?HEAD|remotes/pull/[0-9]+/merge)$' \
               | sed -e "s/^remotes\/origin\///"
