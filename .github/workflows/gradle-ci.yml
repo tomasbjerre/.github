@@ -15,12 +15,19 @@ jobs:
         with:
           fetch-depth: '0'
       - run: |
-          git remote remove origin
-          git remote add origin git@github.com:${GITHUB_REPOSITORY}.git
-          git fetch --all
+          git remote -v
+          #git branch -r \
+          #  | grep -v 'pull/' \
+          #  | grep -v '\->' \
+          #  | sed "s,\x1B\[[0-9;]*[a-zA-Z],,g" \
+          #  | while read remote; do git branch --track "${remote#origin/}" "$remote"; done
+          #git fetch --all
+          #git pull --all
+          git checkout master \
+            && git pull \
+            && git checkout -
           git branch -a
           git tag
-          git remote -v
       - name: Setup java
         uses: actions/setup-java@v2
         with:
