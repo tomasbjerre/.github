@@ -8,17 +8,15 @@ jobs:
     strategy:
       matrix:
         java: [ '8', '11' ]
-        #os: [ 'ubuntu-latest', 'macos-latest', 'windows-latest' ]
         os: [ 'ubuntu-latest', 'macos-latest' ]
     name: Java ${{ matrix.Java }} (${{ matrix.os }})
     steps:
       - uses: actions/checkout@v3
         with:
           fetch-depth: '0'
-      #- name: "Setup Git"
-      #  shell: bash
-      #  run: |
-      - run: |
+      - name: "Setup Git"
+        shell: bash
+        run: |
           git branch -a
           for branch in $(
             git branch -a \
@@ -40,8 +38,13 @@ jobs:
           distribution: 'zulu'
           java-version: ${{ matrix.java }}
       - name: prepare Gradle
-        run: mkdir -p ~/.gradle && echo "org.gradle.daemon=false" >> ~/.gradle/gradle.properties
-      - run: ./gradlew --no-daemon build -s
+        shell: bash
+        run: |
+          mkdir -p ~/.gradle && echo "org.gradle.daemon=false" >> ~/.gradle/gradle.properties
+      - name: "Gradle build"
+        shell: bash
+        run: |
+          ./gradlew --no-daemon build -s
       - name: Publish Build
         uses: actions/upload-artifact@v2
         if: failure()
@@ -50,6 +53,7 @@ jobs:
           path: ${{ github.workspace }}
       - name: create template
         if: ${{ failure() && (github.event_name == 'pull_request' || github.head_ref != github.base_ref) }} # if it is a PR build
+        shell: bash
         run: |
           VIOLATION_TEMPLATE=$(cat << EOF
           {{violation.message}}
