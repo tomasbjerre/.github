@@ -7,8 +7,9 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        java: [ '8', '11' ]
-        os: [ 'ubuntu-latest', 'macos-latest' ]
+        java: [ '8', '11', '17' ]
+        #os: [ 'ubuntu-latest', 'macos-latest', 'windows-latest' ]
+        os: [ 'ubuntu-latest' ]
     name: Java ${{ matrix.Java }} (${{ matrix.os }})
     steps:
       - uses: actions/checkout@v3
