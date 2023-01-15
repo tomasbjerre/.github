@@ -61,7 +61,6 @@ jobs:
           -v "CHECKSTYLE" "." ".*checkstyle/main\.xml$" "Checkstyle" \
           -v "PMD" "." ".*pmd/main\.xml$" "PMD"
       - uses: github/codeql-action/upload-sarif@v2
-        if: success() || failure()
         with:
           sarif_file: sarif-report.json
 
