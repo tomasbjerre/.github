@@ -6,8 +6,9 @@ jobs:
   build:
     runs-on: ${{ matrix.os }}
     strategy:
+      max-parallel: 1
       matrix:
-        java: [ '8', '11', '17' ]
+        java: [ '11', '8', '17' ] # 11 does static code analysis, so run it first
         #os: [ 'ubuntu-latest', 'macos-latest', 'windows-latest' ]
         os: [ 'ubuntu-latest' ]
     name: Java ${{ matrix.Java }} (${{ matrix.os }})
