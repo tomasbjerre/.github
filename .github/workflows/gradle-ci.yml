@@ -60,10 +60,10 @@ jobs:
         if: ${{ (success() || failure()) }}
         run: |
           npx violations-command-line -sarif sarif-report.json \
-          -v "FINDBUGS" "." ".*spotbugs/main\.xml$" "Spotbugs" \
-          -v "CHECKSTYLE" "." ".*checkstyle/main\.xml$" "Checkstyle" \
-          -v "PMD" "." ".*pmd/main\.xml$" "PMD" \
-          -v "JUNIT" "." ".*test/TEST-.*\.xml$" "JUNIT"
+          -v "FINDBUGS" "." ".*build/reports/spotbugs/main\.xml$" "Spotbugs" \
+          -v "CHECKSTYLE" "." ".*build/reports/checkstyle/main\.xml$" "Checkstyle" \
+          -v "PMD" "." ".*build/reports/pmd/main\.xml$" "PMD" \
+          -v "JUNIT" "." ".*/build/test-results/test/TEST-.*\.xml$" "JUNIT"
       - uses: github/codeql-action/upload-sarif@v2
         if: ${{ (success() || failure()) }}
         with:
