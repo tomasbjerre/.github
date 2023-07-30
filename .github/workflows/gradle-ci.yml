@@ -55,15 +55,9 @@ jobs:
           java -version
           javac -version
           ./gradlew --no-daemon build -s
-      - name: Publish Build
-        uses: actions/upload-artifact@v2
-        if: failure()
-        with:
-          name: build-${{ github.run_number }}-${{ matrix.os }}-${{ matrix.java }}
-          path: ${{ github.workspace }}
 
       - name: Transorm static code analysis to SARIF
-        if: ${{ (success() || failure()) && matrix.java == '11' }}
+        if: ${{ (success() || failure()) }}
         run: |
           npx violations-command-line -sarif sarif-report.json \
           -v "FINDBUGS" "." ".*spotbugs/main\.xml$" "Spotbugs" \
@@ -71,6 +65,13 @@ jobs:
           -v "PMD" "." ".*pmd/main\.xml$" "PMD" \
           -v "JUNIT" "." ".*test/TEST-.*\.xml$" "JUNIT"
       - uses: github/codeql-action/upload-sarif@v2
-        if: ${{ (success() || failure()) && matrix.java == '11' }}
+        if: ${{ (success() || failure()) }}
         with:
           sarif_file: sarif-report.json
+
+      - name: Publish Build
+        uses: actions/upload-artifact@v2
+        if: failure()
+        with:
+          name: build-${{ github.run_number }}-${{ matrix.os }}-${{ matrix.java }}
+          path: ${{ github.workspace }}
