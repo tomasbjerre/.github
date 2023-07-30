@@ -115,3 +115,8 @@ jobs:
           createSingleFileComments: false
           createCommentWithAllSingleFileComments: true
           commentTemplate: '{{{violation.message}}}'
+      - name: create template
+        if: ${{ matrix.java == '11' }}
+        shell: bash
+        run: |
+          ./gradlew --no-daemon build -s -x googleJavaFormat verifyGoogleJavaFormat
