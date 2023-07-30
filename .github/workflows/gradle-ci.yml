@@ -61,7 +61,7 @@ jobs:
           path: ${{ github.workspace }}
 
       - name: Transorm static code analysis to SARIF
-        if: success() || failure()
+        if: ${{ (success() || failure()) && matrix.java == '11' }}
         run: |
           npx violations-command-line -sarif sarif-report.json \
           -v "FINDBUGS" "." ".*spotbugs/main\.xml$" "Spotbugs" \
@@ -69,12 +69,12 @@ jobs:
           -v "PMD" "." ".*pmd/main\.xml$" "PMD" \
           -v "JUNIT" "." ".*test/TEST-.*\.xml$" "JUNIT"
       - uses: github/codeql-action/upload-sarif@v2
-        if: success() || failure()
+        if: ${{ (success() || failure()) && matrix.java == '11' }}
         with:
           sarif_file: sarif-report.json
 
       - name: create template
-        if: ${{ failure() && (github.event_name == 'pull_request' || github.head_ref != github.base_ref) }} # if it is a PR build
+        if: ${{ failure() && (github.event_name == 'pull_request' || github.head_ref != github.base_ref) && matrix.java == '11' }} # if it is a PR build
         shell: bash
         run: |
           VIOLATION_TEMPLATE=$(cat << EOF
@@ -85,7 +85,7 @@ jobs:
           echo "$VIOLATION_TEMPLATE" >> $GITHUB_ENV
           echo "EOF" >> $GITHUB_ENV
       - name: Spotbugs
-        if: ${{ failure() && (github.event_name == 'pull_request' || github.head_ref != github.base_ref) }} # if it is a PR build
+        if: ${{ failure() && (github.event_name == 'pull_request' || github.head_ref != github.base_ref) && matrix.java == '11' }} # if it is a PR build
         uses: tomasbjerre/violation-comments-action@master
         with:
           parser: FINDBUGS
@@ -93,7 +93,7 @@ jobs:
           keepOldComments: false
           commentTemplate: ${{ env.VIOLATION_TEMPLATE }}
       - name: Checkstyle
-        if: ${{ failure() && (github.event_name == 'pull_request' || github.head_ref != github.base_ref) }} # if it is a PR build
+        if: ${{ failure() && (github.event_name == 'pull_request' || github.head_ref != github.base_ref) && matrix.java == '11' }} # if it is a PR build
         uses: tomasbjerre/violation-comments-action@master
         with:
           parser: CHECKSTYLE
@@ -101,7 +101,7 @@ jobs:
           keepOldComments: true
           commentTemplate: ${{ env.VIOLATION_TEMPLATE }}
       - name: PMD
-        if: ${{ failure() && (github.event_name == 'pull_request' || github.head_ref != github.base_ref) }} # if it is a PR build
+        if: ${{ failure() && (github.event_name == 'pull_request' || github.head_ref != github.base_ref) && matrix.java == '11' }} # if it is a PR build
         uses: tomasbjerre/violation-comments-action@master
         with:
           parser: PMD
@@ -109,7 +109,7 @@ jobs:
           keepOldComments: true
           commentTemplate: ${{ env.VIOLATION_TEMPLATE }}
       - name: JUNIT
-        if: ${{ failure() && (github.event_name == 'pull_request' || github.head_ref != github.base_ref) }} # if it is a PR build
+        if: ${{ failure() && (github.event_name == 'pull_request' || github.head_ref != github.base_ref) && matrix.java == '11' }} # if it is a PR build
         uses: tomasbjerre/violation-comments-action@master
         with:
           parser: JUNIT
