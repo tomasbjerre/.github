@@ -9,7 +9,7 @@ jobs:
       #max-parallel: 3
       fail-fast: false
       matrix:
-        java: [ '11', '17' ] # 11 does static code analysis, so run it first
+        java: [ '11', '17', '21' ] # 11 does static code analysis, so run it first
         #os: [ 'ubuntu-latest', 'macos-latest', 'windows-latest' ]
         os: [ 'ubuntu-latest' ]
     name: Java ${{ matrix.Java }} (${{ matrix.os }})
@@ -48,7 +48,7 @@ jobs:
         if: ${{ matrix.java == '11' }}
         shell: bash
         run: |
-          ./gradlew --no-daemon -s -x googleJavaFormat verifyGoogleJavaFormat
+          ./gradlew --no-daemon -is spotlessJavaCheck
       - name: "Gradle build"
         shell: bash
         run: |
