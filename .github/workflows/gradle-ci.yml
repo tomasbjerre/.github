@@ -48,13 +48,13 @@ jobs:
         if: ${{ matrix.java == '11' }}
         shell: bash
         run: |
-          ./gradlew --no-daemon -is spotlessJavaCheck
+          ./gradlew --no-daemon spotlessJavaCheck
       - name: "Gradle build"
         shell: bash
         run: |
           java -version
           javac -version
-          ./gradlew --no-daemon build -s
+          ./gradlew --no-daemon build
 
       - name: Transorm static code analysis to SARIF
         if: ${{ (success() || failure()) }}
