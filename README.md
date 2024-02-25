@@ -7,7 +7,7 @@ My re-usable workflows
 ```yml
 name: Call Gradle CI
 
-on: [push, pull_request]
+on: [workflow_dispatch, push, pull_request]
 
 jobs:
   call-workflow:
