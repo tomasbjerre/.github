@@ -5,6 +5,10 @@ on: [workflow_dispatch, workflow_call, push, pull_request]
 jobs:
   build:
     runs-on: ${{ matrix.os }}
+    permissions:
+      security-events: write
+      actions: read
+      contents: read
     strategy:
       #max-parallel: 3
       fail-fast: false
@@ -64,13 +68,14 @@ jobs:
           -v "CHECKSTYLE" "." ".*build/reports/checkstyle/main\.xml$" "Checkstyle" \
           -v "PMD" "." ".*build/reports/pmd/main\.xml$" "PMD" \
           -v "JUNIT" "." ".*/build/test-results/test/TEST-.*\.xml$" "JUNIT"
-      - uses: github/codeql-action/upload-sarif@v2
+      - uses: github/codeql-action/upload-sarif@v3
         if: ${{ (success() || failure()) }}
         with:
           sarif_file: sarif-report.json
+          category: violations-lib
 
       - name: Publish Build
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         if: failure()
         with:
           name: build-${{ github.run_number }}-${{ matrix.os }}-${{ matrix.java }}
