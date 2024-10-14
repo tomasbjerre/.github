@@ -49,7 +49,6 @@ jobs:
         run: |
           mkdir -p ~/.gradle && echo "org.gradle.daemon=false" >> ~/.gradle/gradle.properties
       - name: Check formatting
-        if: ${{ matrix.java == '11' }}
         shell: bash
         run: |
           ./gradlew --no-daemon spotlessJavaCheck
