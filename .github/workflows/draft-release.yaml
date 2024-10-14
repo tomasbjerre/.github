@@ -18,3 +18,5 @@ jobs:
           distribution: 'zulu'
           java-version: 17
       - uses: tomasbjerre/git-changelog-github-release@main
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
