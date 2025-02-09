@@ -29,6 +29,7 @@ jobs:
             git branch -a \
               | grep '^\s*remotes' \
               | egrep --invert-match '(:?HEAD|remotes/pull/[0-9]+/merge)$' \
+              | grep -v "HEAD" \
               | sed -e "s/^.*remotes\/origin\///"
           ); do
               echo setting up $branch
