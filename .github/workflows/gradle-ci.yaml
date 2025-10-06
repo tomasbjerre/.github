@@ -47,6 +47,10 @@ jobs:
         shell: bash
         run: |
           mkdir -p ~/.gradle && echo "org.gradle.daemon=false" >> ~/.gradle/gradle.properties
+      - name: Check formatting
+        shell: bash
+        run: |
+          ./gradlew --no-daemon spotlessJavaCheck
       - name: "Gradle build"
         shell: bash
         run: |
