@@ -3,7 +3,7 @@ name: Publish release on tag push
 on: [workflow_call]
 
 jobs:
-  build:
+  publish-release-on-tag-push:
     runs-on: "ubuntu-latest"
     permissions:
       contents: write
