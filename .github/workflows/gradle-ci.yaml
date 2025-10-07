@@ -76,6 +76,8 @@ jobs:
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
+        with:
+          node-version: "22"
 
       - name: "Gradle build"
         shell: bash
@@ -87,7 +89,7 @@ jobs:
       - name: Transform static code analysis to SARIF
         if: ${{ (success() || failure()) }}
         run: |
-          npx violations-command-line@4.0.0 -sarif sarif-report.json \
+          npx violations-command-line -sarif sarif-report.json \
           -v "FINDBUGS" "." ".*build/reports/spotbugs/main\.xml$" "Spotbugs" \
           -v "CHECKSTYLE" "." ".*build/reports/checkstyle/main\.xml$" "Checkstyle" \
           -v "PMD" "." ".*build/reports/pmd/main\.xml$" "PMD" \
