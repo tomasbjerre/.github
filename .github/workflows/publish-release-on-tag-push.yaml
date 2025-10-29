@@ -1,17 +1,19 @@
 name: Publish release on tag push
 
-on: [workflow_call]
+on:
+  workflow_call:
 
 jobs:
-  publish-release-on-tag-push:
-    runs-on: "ubuntu-latest"
+  publish:
+    runs-on: ubuntu-latest
     permissions:
       contents: write
+
     steps:
       - uses: actions/checkout@v5
         with:
-          fetch-tags: "true"
-          fetch-depth: "0"
+          fetch-tags: true
+          fetch-depth: 0
 
       - name: Set up JDK
         uses: actions/setup-java@v5
@@ -19,7 +21,8 @@ jobs:
           java-version: "25"
           distribution: "zulu"
 
-      - uses: tomasbjerre/git-changelog-github-release@main
+      - name: Publish release
+        uses: tomasbjerre/git-changelog-github-release@main
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:

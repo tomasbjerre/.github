@@ -1,13 +1,3 @@
-#
-# Call it with java-versions like:
-#
-# jobs:
-#  call-ci:
-#    uses: tomasbjerre/.github/.github/workflows/gradle-ci.yaml@master
-#    with:
-#      java-versions: '["17", "21"]'
-#
-#
 name: Gradle CI
 
 on:
