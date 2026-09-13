@@ -30,7 +30,7 @@ jobs:
 
       - run: npm version ${{ steps.version.outputs.version }} --no-git-tag-version
 
-      - run: npx tsc -p .
+      - run: npm run build
 
       - run: npm publish --access public
 
