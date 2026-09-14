@@ -1,0 +1,33 @@
+name: Publish GitHub Release from changelog
+description: >-
+  Checks out full history/tags and uses tomasbjerre/git-changelog-github-release
+  to create or update a GitHub Release (draft or published) rendered from
+  conventional commits.
+
+inputs:
+  draft:
+    description: Whether to create/update the release as a draft.
+    required: false
+    default: "true"
+  github-token:
+    description: Token used to create/update the release.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/checkout@v7
+      with:
+        fetch-tags: true
+        fetch-depth: 0
+
+    - uses: actions/setup-java@v6
+      with:
+        distribution: zulu
+        java-version: "17"
+
+    - uses: tomasbjerre/git-changelog-github-release@main
+      env:
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+      with:
+        draft: ${{ inputs.draft }}

@@ -10,20 +10,7 @@ jobs:
       contents: write
 
     steps:
-      - uses: actions/checkout@v7
+      - uses: tomasbjerre/.github/.github/actions/publish-github-release@master
         with:
-          fetch-tags: true
-          fetch-depth: 0
-
-      - name: Set up JDK
-        uses: actions/setup-java@v6
-        with:
-          java-version: "25"
-          distribution: "zulu"
-
-      - name: Publish release
-        uses: tomasbjerre/git-changelog-github-release@main
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          draft: false
+          draft: "false"
+          github-token: ${{ secrets.GITHUB_TOKEN }}

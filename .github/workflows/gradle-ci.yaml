@@ -92,7 +92,7 @@ jobs:
         if: ${{ (success() || failure()) }}
         with:
           sarif_file: sarif-report.json
-          category: violations-lib
+          category: java-${{ matrix.java }}-${{ matrix.os }}
 
       - name: Publish Build
         uses: actions/upload-artifact@v7

@@ -1,0 +1,13 @@
+name: Set up git bot identity
+description: >-
+  Configures the git author/committer identity used for commits made by
+  workflows (as github-actions[bot]).
+
+runs:
+  using: composite
+  steps:
+    - name: Configure git identity
+      shell: bash
+      run: |
+        git config user.name "github-actions[bot]"
+        git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
