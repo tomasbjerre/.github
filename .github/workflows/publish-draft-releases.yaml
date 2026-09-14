@@ -20,6 +20,15 @@ jobs:
         shell: bash
         run: |
           repos="violations-lib bjurr-maven violations-command-line git-changelog-gradle-plugin java-method-invocation-builder bitbucket-cloud-java-rest-api violations-gradle-plugin violation-comments-to-gitlab-command-line violation-comments-to-bitbucket-server-command-line violation-comments-to-bitbucket-cloud-command-line git-changelog-command-line java-method-invocation-builder-annotations violation-comments-to-gitlab-lib violation-comments-to-bitbucket-server-lib violation-comments-to-bitbucket-cloud-lib violations-git-lib violation-comments-lib git-changelog-lib include-virtual-gradle-plugin update-versions-gradle-plugin violations-maven-plugin git-changelog-maven-plugin assertj-snapshot gradle-conventions"
+
+          # These repos' actual release (npm+Maven Central+Docker Hub) is a
+          # separate self-contained workflow_dispatch step, not triggered by
+          # `release: published` like the others - it bumps its own version
+          # rather than consuming the draft's tag. Publishing the draft here
+          # is only a cosmetic changelog preview, so also kick off the real
+          # release explicitly.
+          dispatch_repos="violations-command-line violation-comments-to-gitlab-command-line violation-comments-to-bitbucket-server-command-line violation-comments-to-bitbucket-cloud-command-line git-changelog-command-line"
+
           for repo in $repos; do
             echo "=== tomasbjerre/$repo ==="
             draft_id=$(gh api "repos/tomasbjerre/$repo/releases" --jq '[.[] | select(.draft==true)] | .[0].id // empty')
@@ -29,4 +38,11 @@ jobs:
             fi
             echo "Publishing draft release id=$draft_id"
             gh api --method PATCH "repos/tomasbjerre/$repo/releases/$draft_id" -f draft=false
+
+            case " $dispatch_repos " in
+              *" $repo "*)
+                echo "Also triggering release.yaml workflow_dispatch for $repo"
+                gh workflow run release.yaml --repo "tomasbjerre/$repo"
+                ;;
+            esac
           done
