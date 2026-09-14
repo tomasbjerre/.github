@@ -39,6 +39,12 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
+          # Explicit ref: for a `release: published` event, github.ref does
+          # not reliably resolve to a proper branch the way it does for
+          # workflow_dispatch, which left the checkout unable to push (the
+          # commitChangelogTask push failed silently, exit 128, without
+          # failing the build).
+          ref: ${{ github.event.repository.default_branch }}
           fetch-depth: 0
           fetch-tags: true
           # A PAT (not the default GITHUB_TOKEN) so the changelog commit this
