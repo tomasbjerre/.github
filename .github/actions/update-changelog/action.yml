@@ -9,6 +9,14 @@ inputs:
   tag:
     description: The release tag to generate the changelog entry for.
     required: true
+  token:
+    description: >-
+      Token to use for checkout and push. Defaults to the workflow's
+      GITHUB_TOKEN, which cannot push to a branch protected by required
+      status checks. Pass a PAT belonging to a user with bypass permission
+      (e.g. secrets.RELEASE_PAT) on repos with such protection.
+    required: false
+    default: ""
 
 runs:
   using: composite
@@ -18,6 +26,7 @@ runs:
         ref: master
         fetch-depth: 0
         fetch-tags: true
+        token: ${{ inputs.token || github.token }}
 
     - uses: actions/setup-node@v7
       with:
