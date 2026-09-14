@@ -27,7 +27,10 @@ runs:
       shell: bash
       run: |
         TAG="${{ inputs.tag }}"
-        PREV_TAG=$(git tag --sort=-v:refname | grep -vFx "$TAG" | head -1)
+        # `|| true` guards against SIGPIPE: head -1 can close the pipe while
+        # grep still has output queued, which fails the pipeline under the
+        # pipefail shell option even though the value we wanted was captured.
+        PREV_TAG=$(git tag --sort=-v:refname | grep -vFx "$TAG" | head -1) || true
         npx git-changelog-command-line \
           ${PREV_TAG:+--from-ref "$PREV_TAG"} \
           --to-ref "$TAG" \
