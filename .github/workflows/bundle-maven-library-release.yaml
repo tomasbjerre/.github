@@ -69,3 +69,4 @@ jobs:
       - uses: tomasbjerre/.github/.github/actions/update-changelog@master
         with:
           tag: ${{ github.event.release.tag_name }}
+          token: ${{ secrets.RELEASE_PAT }}
