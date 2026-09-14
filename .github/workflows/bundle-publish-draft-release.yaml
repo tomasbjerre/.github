@@ -6,6 +6,11 @@
 # master. Publishing it triggers the repo's `release: published` workflow,
 # same as clicking "Publish release" manually.
 #
+# Must publish using a PAT (e.g. secrets.RELEASE_PAT), not the default
+# GITHUB_TOKEN: GitHub does not fire downstream workflow-trigger events for
+# API calls authenticated with the workflow's own GITHUB_TOKEN, so the
+# repo's release-publish pipeline would silently never run.
+#
 # Call it like:
 #
 # name: Publish pending draft release
@@ -33,7 +38,7 @@ jobs:
       - name: Publish draft release if one exists
         shell: bash
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.RELEASE_PAT || secrets.GITHUB_TOKEN }}
         run: |
           draft_id=$(gh api "repos/${{ github.repository }}/releases" --jq '[.[] | select(.draft==true)] | .[0].id // empty')
           if [ -z "$draft_id" ]; then
