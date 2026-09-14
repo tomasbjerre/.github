@@ -6,6 +6,12 @@
 # is published, so the release tag already exists - this workflow uses that
 # tag as the version, it does not compute or bump its own version.
 #
+# The `release` gradle task (see gradle-conventions' release.gradle) is a
+# GradleBuild meta-task: it spawns a separate nested Gradle invocation that
+# does not inherit `-P` properties from the outer command line, it just
+# re-reads gradle.properties from disk. So the version has to be written
+# into gradle.properties directly, a `-Pversion=` flag has no effect here.
+#
 # Call it like:
 #
 # name: Release
@@ -55,8 +61,13 @@ jobs:
       - name: Ensure npm supports trusted publishing (OIDC)
         run: npm install -g npm@latest
 
+      - name: Set version from published release tag
+        run: |
+          sed -i "s/^version=.*/version=${{ github.event.release.tag_name }}/" gradle.properties
+          grep '^version=' gradle.properties
+
       - name: Publish to npm and Maven Central
-        run: ./gradlew -Pversion="${{ github.event.release.tag_name }}" release
+        run: ./gradlew release
         env:
           ORG_GRADLE_PROJECT_mavenCentralUsername: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
           ORG_GRADLE_PROJECT_mavenCentralPassword: ${{ secrets.MAVEN_CENTRAL_PASSWORD }}
