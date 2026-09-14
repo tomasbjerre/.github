@@ -1,0 +1,46 @@
+#
+# Reusable release workflow for Gradle projects that publish only to Maven
+# Central.
+#
+# Intended to run when a drafted GitHub Release (see bundle-draft-release.yaml)
+# is published, so the release tag already exists - this workflow just checks
+# it out, sets the project version to match it, signs and publishes.
+#
+# Call it like:
+#
+# name: Release
+#
+# on:
+#   release:
+#     types: [published]
+#
+# jobs:
+#   release:
+#     uses: tomasbjerre/.github/.github/workflows/bundle-gradle-library-release.yaml@master
+#     secrets: inherit
+#
+name: Gradle Library Release
+
+on: workflow_call
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.release.tag_name }}
+
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+
+      - name: Publish to Maven Central
+        run: ./gradlew -Pversion="${{ github.event.release.tag_name }}" publishAndReleaseToMavenCentral
+        env:
+          ORG_GRADLE_PROJECT_mavenCentralUsername: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
+          ORG_GRADLE_PROJECT_mavenCentralPassword: ${{ secrets.MAVEN_CENTRAL_PASSWORD }}
+          signingkey: ${{ secrets.GPG_SIGNING_KEY }}
+          SIGNING_PASSWORD: ${{ secrets.GPG_SIGNING_PASSWORD }}
