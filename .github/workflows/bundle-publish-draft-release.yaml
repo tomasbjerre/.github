@@ -1,0 +1,44 @@
+#
+# Publishes the repo's pending draft GitHub Release, if one exists.
+#
+# git-changelog-github-release (see bundle-draft-release.yaml) maintains at
+# most one open draft release per repo, updating it as commits land on
+# master. Publishing it triggers the repo's `release: published` workflow,
+# same as clicking "Publish release" manually.
+#
+# Call it like:
+#
+# name: Publish pending draft release
+#
+# on:
+#   schedule:
+#     - cron: "0 6 * * 1"
+#   workflow_dispatch:
+#
+# jobs:
+#   publish:
+#     uses: tomasbjerre/.github/.github/workflows/bundle-publish-draft-release.yaml@master
+#     secrets: inherit
+#
+name: Publish pending draft release
+
+on: workflow_call
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Publish draft release if one exists
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          draft_id=$(gh api "repos/${{ github.repository }}/releases" --jq '[.[] | select(.draft==true)] | .[0].id // empty')
+          if [ -z "$draft_id" ]; then
+            echo "No draft release pending"
+            exit 0
+          fi
+          echo "Publishing draft release id=$draft_id"
+          gh api --method PATCH "repos/${{ github.repository }}/releases/$draft_id" -f draft=false
