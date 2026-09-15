@@ -28,5 +28,12 @@ jobs:
               continue
             fi
             echo "Publishing draft release id=$draft_id"
-            gh api --method PATCH "repos/tomasbjerre/$repo/releases/$draft_id" -f draft=false -f make_latest=true
+            # Two separate calls: draft=false and make_latest=true in the same
+            # PATCH silently fails to mark latest - GitHub's API evaluates
+            # make_latest's "drafts cannot be latest" rule against the
+            # pre-transition state within a single request. A follow-up call,
+            # once the release is already persisted as non-draft, applies it
+            # correctly.
+            gh api --method PATCH "repos/tomasbjerre/$repo/releases/$draft_id" -f draft=false
+            gh api --method PATCH "repos/tomasbjerre/$repo/releases/$draft_id" -f make_latest=true
           done
