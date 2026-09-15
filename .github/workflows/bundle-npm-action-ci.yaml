@@ -120,7 +120,22 @@ jobs:
           git add dist
           git commit -m "chore: rebuild dist/"
           branch="${{ github.event_name == 'pull_request' && github.head_ref || github.ref_name }}"
-          git push "https://x-access-token:${{ secrets.RELEASE_PAT }}@github.com/${{ github.repository }}.git" HEAD:"$branch"
+          remote="https://x-access-token:${{ secrets.RELEASE_PAT }}@github.com/${{ github.repository }}.git"
+          if git push "$remote" HEAD:"$branch"; then
+            exit 0
+          fi
+          # push and pull_request fire together for the same commit on a
+          # same-repo branch, so another run can win this race despite the
+          # concurrency group above (cancellation isn't instant). Check
+          # whether that run already landed the same fix before failing.
+          echo "Push rejected - checking whether a concurrent run already fixed dist/"
+          git fetch "$remote" "$branch"
+          if git diff --quiet FETCH_HEAD -- dist; then
+            echo "$branch already has this exact dist/ output (fixed by a concurrent run) - nothing more to do"
+            exit 0
+          fi
+          echo "::error::Failed to push the dist/ fix, and $branch's current dist/ still doesn't match - see the push error above."
+          exit 1
 
       - name: Verify committed dist/ matches build output
         if: steps.fixable.outputs.value == 'false'
