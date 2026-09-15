@@ -127,8 +127,14 @@ jobs:
           git add dist
           git commit -m "chore: rebuild dist/"
           branch="${{ github.event_name == 'pull_request' && github.head_ref || github.ref_name }}"
-          remote="https://x-access-token:${{ secrets.RELEASE_PAT }}@github.com/${{ github.repository }}.git"
-          if git push "$remote" HEAD:"$branch"; then
+          # Same mechanism actions/checkout itself uses for its `token:`
+          # input (Basic auth via a one-off http.extraheader, scoped to
+          # just this git invocation via -c). A URL-embedded
+          # x-access-token:<PAT>@github.com credential is rejected outright
+          # by GitHub ("Password authentication is not supported") for this
+          # token, even though the same PAT works fine via this header form.
+          auth="$(printf 'x-access-token:%s' '${{ secrets.RELEASE_PAT }}' | base64 -w0)"
+          if git -c http.extraheader="AUTHORIZATION: basic $auth" push origin HEAD:"$branch"; then
             exit 0
           fi
           # push and pull_request fire together for the same commit on a
@@ -136,7 +142,7 @@ jobs:
           # concurrency group above (cancellation isn't instant). Check
           # whether that run already landed the same fix before failing.
           echo "Push rejected - checking whether a concurrent run already fixed dist/"
-          git fetch "$remote" "$branch"
+          git -c http.extraheader="AUTHORIZATION: basic $auth" fetch origin "$branch"
           if git diff --quiet FETCH_HEAD -- dist; then
             echo "$branch already has this exact dist/ output (fixed by a concurrent run) - nothing more to do"
             exit 0
