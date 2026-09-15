@@ -51,6 +51,16 @@
 #
 name: Bundle NPM Action CI
 
+# A same-repo PR branch gets both a `push` and a `pull_request: synchronize`
+# event for the same commit, so this workflow runs twice in parallel. Both
+# runs try to push a self-heal commit to the same branch, and the second
+# push loses with a non-fast-forward rejection. Groups both events for the
+# same branch into one slot; the newer run cancels the older one instead of
+# racing it.
+concurrency:
+  group: npm-action-ci-${{ github.repository }}-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
 on:
   workflow_call:
     inputs:
