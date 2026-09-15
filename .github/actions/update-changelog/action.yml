@@ -54,6 +54,6 @@ runs:
           echo "No changelog changes"
         else
           git add CHANGELOG.md
-          git commit -m "chore: updating changelog"
+          git commit -m "chore(changelog): updating changelog"
           git push origin master
         fi
