@@ -21,11 +21,17 @@
 # given commit, that commit's dist/ is already known-correct, so the
 # resulting tag is safe for consumers to use directly (uses: owner/repo@X.Y.Z).
 #
-# Call it like:
+# Call it like (the push trigger MUST be scoped to the default branch only -
+# an unscoped `push` fires on every branch, including PR/dependency-bot
+# branches, pushing dist/ commits and regenerating the draft release
+# description from whatever branch happened to push most recently):
 #
 # name: Draft release
 #
-# on: [workflow_dispatch, push]
+# on:
+#   push:
+#     branches: [main]
+#   workflow_dispatch: {}
 #
 # permissions:
 #   contents: write
