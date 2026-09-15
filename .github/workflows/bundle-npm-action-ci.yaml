@@ -4,15 +4,36 @@
 # exact file tree at the referenced ref; nothing is built at consumption
 # time.
 #
-# Builds the action and fails if the committed dist/ doesn't match what the
-# source actually compiles to, so a floating major-version tag (see
-# bundle-npm-action-release.yaml) can safely be moved to any green commit.
+# Builds the action. If the committed dist/ has drifted from what the
+# source actually compiles to (e.g. a dependency-bump PR that never ran
+# `npm run build`), this self-heals rather than just failing:
+#
+# - On a push, or a pull_request from a branch in this same repository
+#   (Renovate branches, your own feature branches - anything with write
+#   access), it commits the rebuilt dist/ straight back onto that branch.
+#   The commit re-triggers this workflow, which then sees no drift and
+#   passes - no one has to remember to run `npm run build` locally.
+# - On a pull_request from a fork (no push access, and deliberately no
+#   auto-committing of derived output from unreviewed code), it fails
+#   with a message telling the contributor to run `npm run build` and
+#   commit the result themselves.
+#
+# A real build failure (the source doesn't compile/bundle at all) always
+# fails loudly regardless of which case above applies - only the "committed
+# dist vs a clean build" diff is self-healing.
+#
+# This is what makes it safe for bundle-npm-action-release.yaml's floating
+# major-version tag to move to any green commit on this repo's default
+# branch: green here always means dist/ is actually correct.
 #
 # Call it like:
 #
 # name: CI
 #
 # on: [workflow_dispatch, push, pull_request]
+#
+# permissions:
+#   contents: write
 #
 # jobs:
 #   call-workflow:
@@ -32,8 +53,12 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v7
@@ -49,7 +74,36 @@ jobs:
         shell: bash
         run: npm run build
 
+      - name: Determine whether this branch can be auto-fixed
+        id: fixable
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" != "pull_request" ] \
+            || [ "${{ github.event.pull_request.head.repo.full_name }}" = "${{ github.repository }}" ]; then
+            echo "value=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "value=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: tomasbjerre/.github/.github/actions/git-bot-identity@master
+        if: steps.fixable.outputs.value == 'true'
+
+      - name: Commit rebuilt dist/ if it drifted
+        if: steps.fixable.outputs.value == 'true'
+        shell: bash
+        run: |
+          if git diff --quiet -- dist; then
+            echo "dist/ is already up to date"
+            exit 0
+          fi
+          echo "dist/ was out of date - committing the rebuilt output"
+          git add dist
+          git commit -m "chore: rebuild dist/"
+          branch="${{ github.event_name == 'pull_request' && github.head_ref || github.ref_name }}"
+          git push origin HEAD:"$branch"
+
       - name: Verify committed dist/ matches build output
+        if: steps.fixable.outputs.value == 'false'
         shell: bash
         run: |
           if ! git diff --exit-code -- dist; then
