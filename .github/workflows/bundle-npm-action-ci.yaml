@@ -1,0 +1,58 @@
+#
+# Reusable CI workflow for npm-based GitHub Actions - TypeScript actions
+# that commit their bundled `dist/` output to git, since Actions run the
+# exact file tree at the referenced ref; nothing is built at consumption
+# time.
+#
+# Builds the action and fails if the committed dist/ doesn't match what the
+# source actually compiles to, so a floating major-version tag (see
+# bundle-npm-action-release.yaml) can safely be moved to any green commit.
+#
+# Call it like:
+#
+# name: CI
+#
+# on: [workflow_dispatch, push, pull_request]
+#
+# jobs:
+#   call-workflow:
+#     uses: tomasbjerre/.github/.github/workflows/bundle-npm-action-ci.yaml@master
+#
+name: Bundle NPM Action CI
+
+on:
+  workflow_call:
+    inputs:
+      node-version:
+        description: "Node version to build with"
+        required: false
+        default: "24"
+        type: string
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: npm
+
+      - name: Install
+        shell: bash
+        run: npm ci
+
+      - name: Build
+        shell: bash
+        run: npm run build
+
+      - name: Verify committed dist/ matches build output
+        shell: bash
+        run: |
+          if ! git diff --exit-code -- dist; then
+            echo "::error::dist/ is out of date. Run 'npm run build' locally and commit the result."
+            exit 1
+          fi
