@@ -4,10 +4,17 @@
 # source builds and never touches dist/).
 #
 # Runs on push to the default branch. Rebuilds dist/ and, if it drifted
-# from what's committed, commits and pushes the fix - using the default
-# GITHUB_TOKEN, since nothing here depends on that push triggering another
-# workflow run. Then drafts/updates the GitHub Release from commit history,
-# same as the generic bundle-draft-release.yaml.
+# from what's committed, commits and pushes the fix, then drafts/updates
+# the GitHub Release from commit history, same as the generic
+# bundle-draft-release.yaml.
+#
+# The commit push authenticates with secrets.RELEASE_PAT rather than the
+# default GITHUB_TOKEN: on a branch with required-status-checks protection,
+# GITHUB_TOKEN has no bypass privilege and the push is rejected outright
+# (GH006) since the brand new commit hasn't had a chance to gain a passing
+# check yet. A PAT belonging to a user with bypass permission (the same
+# reason it's used for the changelog-commit push in the Gradle/Maven
+# release bundles) can push straight through.
 #
 # This is what makes a later "publish this release" step trustworthy with
 # no further automation needed: by the time a release is drafted from a
@@ -26,6 +33,7 @@
 # jobs:
 #   call-workflow:
 #     uses: tomasbjerre/.github/.github/workflows/bundle-npm-action-draft-release.yaml@master
+#     secrets: inherit
 #
 name: Bundle NPM Action Draft Release
 
@@ -45,6 +53,8 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
       - name: Setup Node.js
         uses: actions/setup-node@v7
@@ -72,7 +82,12 @@ jobs:
           echo "dist/ was out of date - committing the rebuilt output"
           git add dist
           git commit -m "chore: rebuild dist/"
-          git push origin HEAD:"${{ github.ref_name }}"
+          # Same mechanism actions/checkout itself uses for its `token:`
+          # input (Basic auth via a one-off http.extraheader, scoped to
+          # just this git invocation via -c) - a URL-embedded credential
+          # is rejected outright by GitHub for this token.
+          auth="$(printf 'x-access-token:%s' '${{ secrets.RELEASE_PAT }}' | base64 -w0)"
+          git -c http.extraheader="AUTHORIZATION: basic $auth" push origin HEAD:"${{ github.ref_name }}"
 
       - uses: tomasbjerre/.github/.github/actions/publish-github-release@master
         with:
