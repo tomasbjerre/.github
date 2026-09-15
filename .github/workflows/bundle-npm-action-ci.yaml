@@ -79,6 +79,13 @@ jobs:
       - uses: actions/checkout@v7
         with:
           ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+          # The self-heal push further down authenticates with
+          # secrets.RELEASE_PAT instead of the default GITHUB_TOKEN (see
+          # that step for why). Checkout's own GITHUB_TOKEN credential is
+          # stored via an includeIf.gitdir-included file, not local repo
+          # config, so `git config --unset` can't reach it - persist-credentials:
+          # false stops checkout from setting it up in the first place.
+          persist-credentials: false
 
       - name: Setup Node.js
         uses: actions/setup-node@v7
@@ -121,13 +128,6 @@ jobs:
           git commit -m "chore: rebuild dist/"
           branch="${{ github.event_name == 'pull_request' && github.head_ref || github.ref_name }}"
           remote="https://x-access-token:${{ secrets.RELEASE_PAT }}@github.com/${{ github.repository }}.git"
-          # actions/checkout leaves a GITHUB_TOKEN credential in
-          # http.https://github.com/.extraheader, which silently wins over
-          # the PAT embedded in $remote's URL unless removed first - without
-          # this, the push still succeeds but is attributed to
-          # github-actions[bot] (the GITHUB_TOKEN identity) instead of the
-          # PAT's, defeating the whole point of using the PAT here.
-          git config --unset-all http.https://github.com/.extraheader || true
           if git push "$remote" HEAD:"$branch"; then
             exit 0
           fi
