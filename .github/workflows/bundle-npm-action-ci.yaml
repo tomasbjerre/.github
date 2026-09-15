@@ -121,6 +121,13 @@ jobs:
           git commit -m "chore: rebuild dist/"
           branch="${{ github.event_name == 'pull_request' && github.head_ref || github.ref_name }}"
           remote="https://x-access-token:${{ secrets.RELEASE_PAT }}@github.com/${{ github.repository }}.git"
+          # actions/checkout leaves a GITHUB_TOKEN credential in
+          # http.https://github.com/.extraheader, which silently wins over
+          # the PAT embedded in $remote's URL unless removed first - without
+          # this, the push still succeeds but is attributed to
+          # github-actions[bot] (the GITHUB_TOKEN identity) instead of the
+          # PAT's, defeating the whole point of using the PAT here.
+          git config --unset-all http.https://github.com/.extraheader || true
           if git push "$remote" HEAD:"$branch"; then
             exit 0
           fi
