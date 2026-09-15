@@ -26,6 +26,15 @@
 # major-version tag to move to any green commit on this repo's default
 # branch: green here always means dist/ is actually correct.
 #
+# A commit pushed with the default GITHUB_TOKEN doesn't trigger a fresh,
+# actually-runnable workflow run on a pull_request branch - GitHub creates
+# the run but holds it "action_required", needing a human to click approve.
+# So the self-heal commit's push authenticates with secrets.RELEASE_PAT
+# instead (same reason it's used for the changelog-commit push in the
+# release bundles: a PAT-triggered push does trigger a normal run). The
+# PAT is only ever used after confirming the branch is a same-repo one -
+# it's never exposed to a fork PR's checkout/build/install-script execution.
+#
 # Call it like:
 #
 # name: CI
@@ -38,6 +47,7 @@
 # jobs:
 #   call-workflow:
 #     uses: tomasbjerre/.github/.github/workflows/bundle-npm-action-ci.yaml@master
+#     secrets: inherit
 #
 name: Bundle NPM Action CI
 
@@ -100,7 +110,7 @@ jobs:
           git add dist
           git commit -m "chore: rebuild dist/"
           branch="${{ github.event_name == 'pull_request' && github.head_ref || github.ref_name }}"
-          git push origin HEAD:"$branch"
+          git push "https://x-access-token:${{ secrets.RELEASE_PAT }}@github.com/${{ github.repository }}.git" HEAD:"$branch"
 
       - name: Verify committed dist/ matches build output
         if: steps.fixable.outputs.value == 'false'
