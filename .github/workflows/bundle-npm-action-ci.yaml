@@ -4,36 +4,17 @@
 # exact file tree at the referenced ref; nothing is built at consumption
 # time.
 #
-# Builds the action. If the committed dist/ has drifted from what the
-# source actually compiles to (e.g. a dependency-bump PR that never ran
-# `npm run build`), this self-heals rather than just failing:
+# This is a pure build smoke test: it only verifies the source actually
+# compiles/bundles. It does not check whether the committed dist/ matches
+# a fresh build, and it never commits or pushes anything - identical
+# behavior for a pull_request (including from a fork) and a push, no
+# auth/permissions of any kind needed.
 #
-# - On a push, or a pull_request from a branch in this same repository
-#   (Renovate branches, your own feature branches - anything with write
-#   access), it commits the rebuilt dist/ straight back onto that branch.
-#   The commit re-triggers this workflow, which then sees no drift and
-#   passes - no one has to remember to run `npm run build` locally.
-# - On a pull_request from a fork (no push access, and deliberately no
-#   auto-committing of derived output from unreviewed code), it fails
-#   with a message telling the contributor to run `npm run build` and
-#   commit the result themselves.
-#
-# A real build failure (the source doesn't compile/bundle at all) always
-# fails loudly regardless of which case above applies - only the "committed
-# dist vs a clean build" diff is self-healing.
-#
-# This is what makes it safe for bundle-npm-action-release.yaml's floating
-# major-version tag to move to any green commit on this repo's default
-# branch: green here always means dist/ is actually correct.
-#
-# A commit pushed with the default GITHUB_TOKEN doesn't trigger a fresh,
-# actually-runnable workflow run on a pull_request branch - GitHub creates
-# the run but holds it "action_required", needing a human to click approve.
-# So the self-heal commit's push authenticates with secrets.RELEASE_PAT
-# instead (same reason it's used for the changelog-commit push in the
-# release bundles: a PAT-triggered push does trigger a normal run). The
-# PAT is only ever used after confirming the branch is a same-repo one -
-# it's never exposed to a fork PR's checkout/build/install-script execution.
+# Keeping dist/ correct is bundle-npm-action-draft-release.yaml's job: it
+# runs on push to the default branch, rebuilds dist/, and commits it if it
+# drifted, before drafting the release. That's also what makes a published
+# release's tag trustworthy - by the time a release is drafted from a
+# given commit, that commit's dist/ is already known-correct.
 #
 # Call it like:
 #
@@ -41,25 +22,11 @@
 #
 # on: [workflow_dispatch, push, pull_request]
 #
-# permissions:
-#   contents: write
-#
 # jobs:
 #   call-workflow:
 #     uses: tomasbjerre/.github/.github/workflows/bundle-npm-action-ci.yaml@master
-#     secrets: inherit
 #
 name: Bundle NPM Action CI
-
-# A same-repo PR branch gets both a `push` and a `pull_request: synchronize`
-# event for the same commit, so this workflow runs twice in parallel. Both
-# runs try to push a self-heal commit to the same branch, and the second
-# push loses with a non-fast-forward rejection. Groups both events for the
-# same branch into one slot; the newer run cancels the older one instead of
-# racing it.
-concurrency:
-  group: npm-action-ci-${{ github.repository }}-${{ github.head_ref || github.ref_name }}
-  cancel-in-progress: true
 
 on:
   workflow_call:
@@ -73,19 +40,8 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
     steps:
       - uses: actions/checkout@v7
-        with:
-          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
-          # The self-heal push further down authenticates with
-          # secrets.RELEASE_PAT instead of the default GITHUB_TOKEN (see
-          # that step for why). Checkout's own GITHUB_TOKEN credential is
-          # stored via an includeIf.gitdir-included file, not local repo
-          # config, so `git config --unset` can't reach it - persist-credentials:
-          # false stops checkout from setting it up in the first place.
-          persist-credentials: false
 
       - name: Setup Node.js
         uses: actions/setup-node@v7
@@ -100,61 +56,3 @@ jobs:
       - name: Build
         shell: bash
         run: npm run build
-
-      - name: Determine whether this branch can be auto-fixed
-        id: fixable
-        shell: bash
-        run: |
-          if [ "${{ github.event_name }}" != "pull_request" ] \
-            || [ "${{ github.event.pull_request.head.repo.full_name }}" = "${{ github.repository }}" ]; then
-            echo "value=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "value=false" >> "$GITHUB_OUTPUT"
-          fi
-
-      - uses: tomasbjerre/.github/.github/actions/git-bot-identity@master
-        if: steps.fixable.outputs.value == 'true'
-
-      - name: Commit rebuilt dist/ if it drifted
-        if: steps.fixable.outputs.value == 'true'
-        shell: bash
-        run: |
-          if git diff --quiet -- dist; then
-            echo "dist/ is already up to date"
-            exit 0
-          fi
-          echo "dist/ was out of date - committing the rebuilt output"
-          git add dist
-          git commit -m "chore: rebuild dist/"
-          branch="${{ github.event_name == 'pull_request' && github.head_ref || github.ref_name }}"
-          # Same mechanism actions/checkout itself uses for its `token:`
-          # input (Basic auth via a one-off http.extraheader, scoped to
-          # just this git invocation via -c). A URL-embedded
-          # x-access-token:<PAT>@github.com credential is rejected outright
-          # by GitHub ("Password authentication is not supported") for this
-          # token, even though the same PAT works fine via this header form.
-          auth="$(printf 'x-access-token:%s' '${{ secrets.RELEASE_PAT }}' | base64 -w0)"
-          if git -c http.extraheader="AUTHORIZATION: basic $auth" push origin HEAD:"$branch"; then
-            exit 0
-          fi
-          # push and pull_request fire together for the same commit on a
-          # same-repo branch, so another run can win this race despite the
-          # concurrency group above (cancellation isn't instant). Check
-          # whether that run already landed the same fix before failing.
-          echo "Push rejected - checking whether a concurrent run already fixed dist/"
-          git -c http.extraheader="AUTHORIZATION: basic $auth" fetch origin "$branch"
-          if git diff --quiet FETCH_HEAD -- dist; then
-            echo "$branch already has this exact dist/ output (fixed by a concurrent run) - nothing more to do"
-            exit 0
-          fi
-          echo "::error::Failed to push the dist/ fix, and $branch's current dist/ still doesn't match - see the push error above."
-          exit 1
-
-      - name: Verify committed dist/ matches build output
-        if: steps.fixable.outputs.value == 'false'
-        shell: bash
-        run: |
-          if ! git diff --exit-code -- dist; then
-            echo "::error::dist/ is out of date. Run 'npm run build' locally and commit the result."
-            exit 1
-          fi

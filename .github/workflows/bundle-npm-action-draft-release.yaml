@@ -1,0 +1,80 @@
+#
+# Draft-release workflow for npm-based GitHub Actions (see
+# bundle-npm-action-ci.yaml for the CI half, which only checks that the
+# source builds and never touches dist/).
+#
+# Runs on push to the default branch. Rebuilds dist/ and, if it drifted
+# from what's committed, commits and pushes the fix - using the default
+# GITHUB_TOKEN, since nothing here depends on that push triggering another
+# workflow run. Then drafts/updates the GitHub Release from commit history,
+# same as the generic bundle-draft-release.yaml.
+#
+# This is what makes a later "publish this release" step trustworthy with
+# no further automation needed: by the time a release is drafted from a
+# given commit, that commit's dist/ is already known-correct, so the
+# resulting tag is safe for consumers to use directly (uses: owner/repo@X.Y.Z).
+#
+# Call it like:
+#
+# name: Draft release
+#
+# on: [workflow_dispatch, push]
+#
+# permissions:
+#   contents: write
+#
+# jobs:
+#   call-workflow:
+#     uses: tomasbjerre/.github/.github/workflows/bundle-npm-action-draft-release.yaml@master
+#
+name: Bundle NPM Action Draft Release
+
+on:
+  workflow_call:
+    inputs:
+      node-version:
+        description: "Node version to build with"
+        required: false
+        default: "24"
+        type: string
+
+jobs:
+  draft-release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: npm
+
+      - name: Install
+        shell: bash
+        run: npm ci
+
+      - name: Build
+        shell: bash
+        run: npm run build
+
+      - uses: tomasbjerre/.github/.github/actions/git-bot-identity@master
+
+      - name: Commit rebuilt dist/ if it drifted
+        shell: bash
+        run: |
+          if git diff --quiet -- dist; then
+            echo "dist/ is already up to date"
+            exit 0
+          fi
+          echo "dist/ was out of date - committing the rebuilt output"
+          git add dist
+          git commit -m "chore: rebuild dist/"
+          git push origin HEAD:"${{ github.ref_name }}"
+
+      - uses: tomasbjerre/.github/.github/actions/publish-github-release@master
+        with:
+          draft: "true"
+          github-token: ${{ secrets.GITHUB_TOKEN }}
