@@ -19,8 +19,7 @@ jobs:
       - name: Publish any pending draft releases
         shell: bash
         run: |
-          repos="violations-lib bjurr-maven violations-command-line git-changelog-gradle-plugin java-method-invocation-builder bitbucket-cloud-java-rest-api violations-gradle-plugin violation-comments-to-gitlab-command-line violation-comments-to-bitbucket-server-command-line violation-comments-to-bitbucket-cloud-command-line git-changelog-command-line java-method-invocation-builder-annotations violation-comments-to-gitlab-lib violation-comments-to-bitbucket-server-lib violation-comments-to-bitbucket-cloud-lib violations-git-lib violation-comments-lib git-changelog-lib include-virtual-gradle-plugin update-versions-gradle-plugin violations-maven-plugin git-changelog-maven-plugin assertj-snapshot gradle-conventions"
-
+          repos=$(gh api users/tomasbjerre/repos --paginate --jq '.[].name')
           for repo in $repos; do
             echo "=== tomasbjerre/$repo ==="
             draft_id=$(gh api "repos/tomasbjerre/$repo/releases" --jq '[.[] | select(.draft==true)] | .[0].id // empty')
