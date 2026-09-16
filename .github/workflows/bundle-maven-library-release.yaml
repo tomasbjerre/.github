@@ -41,6 +41,7 @@ jobs:
         with:
           distribution: temurin
           java-version: "26.0.2+10"
+          cache: maven
           server-id: ossrh
           server-username: MAVEN_CENTRAL_USERNAME
           server-password: MAVEN_CENTRAL_PASSWORD
