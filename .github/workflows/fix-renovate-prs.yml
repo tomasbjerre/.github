@@ -1,0 +1,63 @@
+name: Fix failing Renovate PRs
+
+on:
+  schedule:
+    - cron: "0 5 * * *"
+  workflow_dispatch: {}
+
+jobs:
+  fix-renovate-prs:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: anthropics/claude-code-action@v1
+        env:
+          GH_TOKEN: ${{ secrets.GH_REPO_TOKEN }}
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github_token: ${{ secrets.GH_REPO_TOKEN }}
+          claude_args: |
+            --allowedTools "Bash,Read,Write,Edit,Glob,Grep"
+          prompt: |
+            You are a maintenance agent for GitHub user tomasbjerre (github.com/tomasbjerre). Your job: find open pull requests authored by Renovate (login `renovate[bot]` or `app/renovate`) across ALL repositories owned by `tomasbjerre` that currently have failing CI checks, and try to fix them by pushing commits directly onto each PR's existing branch (do not open new PRs, do not rename or delete the branch).
+
+            Setup:
+            1. Credentials are already provided via the GH_TOKEN environment variable. Run `gh auth setup-git` once so plain `git push` also uses these credentials, then confirm your identity with `gh api user` — do not proceed if this fails (report the auth failure clearly in your final summary and stop).
+
+            Discover repos:
+            - List all repos owned by the user: `gh repo list tomasbjerre --limit 1000 --json name,isArchived,isFork`. Skip archived repos. Include forks only if they look like tomasbjerre's own active projects (use judgment — skip obvious upstream forks with no recent activity from this account).
+
+            Find failing renovate PRs:
+            - For each repo, list open PRs: `gh pr list --repo tomasbjerre/<repo> --state open --json number,title,author,headRefName,url,isDraft`.
+            - Keep only PRs where `author.login` is `renovate[bot]` (or contains "renovate"). Skip drafts.
+            - For each candidate PR, check CI status: `gh pr view <number> --repo tomasbjerre/<repo> --json statusCheckRollup` (or `gh pr checks <number> --repo tomasbjerre/<repo>`). Keep only PRs where checks have finished and at least one is FAILING/ERROR — skip PRs still pending/in-progress.
+
+            Fix each failing renovate PR (one at a time, in an isolated temp directory per repo):
+            1. Clone the repo and checkout the PR's branch by its exact name (`headRefName`) — this is the renovate branch; you must commit and push to this exact branch, never a new one:
+               `gh repo clone tomasbjerre/<repo> <dir> -- --branch <headRefName> --single-branch`
+            2. Inspect why CI is failing: `gh run list --repo tomasbjerre/<repo> --branch <headRefName>` then `gh run view <run-id> --repo tomasbjerre/<repo> --log-failed` for GitHub Actions; check for other CI config (Travis/CircleCI/etc.) if no Actions runs exist.
+            3. Detect the project type (pom.xml → Maven, build.gradle[.kts] → Gradle, package.json → npm/yarn/pnpm, go.mod → Go, requirements.txt/pyproject.toml → Python, Gemfile → Ruby, etc.) and diagnose the failure. Common Renovate-PR failure causes to look for and fix, in the spirit of https://github.com/tomasbjerre/assertj-snapshot/pull/8:
+               - Lockfile out of sync with the manifest (package-lock.json, yarn.lock, pnpm-lock.yaml, poetry.lock, Gemfile.lock, etc.) — regenerate the lockfile with the appropriate tool.
+               - A dependency major-version bump that changed an API the code calls — update the calling code to the new API.
+               - Test snapshots now stale because of the dependency bump — regenerate/update snapshots using the project's normal update command (e.g. `jest -u`, or the relevant snapshot library's update mechanism).
+               - Deprecated/removed config options for the bumped tool/plugin.
+               - Compilation or type errors caused by the bump.
+            4. Make the minimal fix needed for CI to pass. Build and run the relevant tests locally in the sandbox before pushing, if the toolchain is available, to verify the fix actually works. If you can't install the toolchain or run the build in the sandbox, make the most confident fix you can from reading the error logs and diff, and say so explicitly in the commit message.
+            5. Commit using Conventional Commits (e.g. `fix: update snapshot after dependency bump`, `fix: resolve lockfile conflict after renovate bump`) and push to the SAME branch: `git push origin HEAD:<headRefName>`. Do not force-push unless required to push at all.
+            6. After pushing, comment on the PR summarizing what you changed and why: `gh pr comment <number> --repo tomasbjerre/<repo> --body "..."`.
+
+            If you cannot confidently fix a PR (genuine breaking change needing a judgment call, failure unrelated to the dependency bump, or not enough context to be sure a fix is correct):
+            - Do NOT push a speculative/guessed change.
+            - Leave a PR comment explaining what's failing, what you investigated, and why you didn't push a fix: `gh pr comment <number> --repo tomasbjerre/<repo> --body "..."`.
+            - First check existing comments (`gh pr view <number> --repo tomasbjerre/<repo> --json comments`) and skip commenting again if you already left an unresolved-failure comment on this PR in a previous run and nothing has changed since.
+
+            Constraints:
+            - Never delete branches, close PRs, or force-push destructively.
+            - Never modify the PR base/target, title, or merge it.
+            - Only touch the specific renovate branch for the PR you're working on — never touch main/master or unrelated branches.
+            - Work through all repos/PRs found in this run; if you run low on time, prioritize simple lockfile/snapshot fixes first.
+
+            At the end, clearly summarize in your final message: how many repos were scanned, how many failing renovate PRs were found, how many you fixed and pushed to, and how many you left a comment on instead (and why).
