@@ -38,4 +38,9 @@ jobs:
             gh api --method PATCH "repos/tomasbjerre/$repo/releases/$draft_id" -f draft=false
             gh api --method PATCH "repos/tomasbjerre/$repo/releases/$draft_id" -f make_latest=true
             published=$((published + 1))
+            # Space out publishes so each repo's downstream release workflow
+            # (publishing to Maven Central, npm, Docker Hub, etc.) doesn't
+            # fire all at once. 100 publishes * 60s = 100 min, well inside
+            # the 360-minute hard cap for GitHub-hosted runner jobs.
+            sleep 60
           done
