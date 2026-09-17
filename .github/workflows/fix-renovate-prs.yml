@@ -15,14 +15,14 @@ jobs:
 
       - uses: anthropics/claude-code-action@v1
         env:
-          GH_TOKEN: ${{ secrets.GH_REPO_TOKEN }}
+          GH_REPO_TOKEN: ${{ secrets.GH_REPO_TOKEN }}
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           github_token: ${{ secrets.GH_REPO_TOKEN }}
           claude_args: |
             --allowedTools "Bash,Read,Write,Edit,Glob,Grep"
           prompt: |
-            GitHub credentials are already set up (GH_TOKEN env var; run `gh auth setup-git` once so `git push` uses it too).
+            Authenticate first: `gh auth login --with-token <<< "$GH_REPO_TOKEN"` then `gh auth setup-git` so `git push` uses it too.
 
             Across every repo owned by `${{ github.repository_owner }}`, find open Renovate pull requests with failing CI checks. For each one: check out its existing branch (not a new one), diagnose the failure (lockfile drift, a breaking API change from the bump, stale snapshots, etc.), and push a minimal, verified fix straight to that branch with a Conventional Commits message. If you can't confidently fix it, leave a PR comment explaining why instead of guessing.
 
