@@ -1,21 +1,8 @@
-#
-# Single point of control for how often pending draft releases get
-# published across all repos. Change the cron/MAX_PUBLISH below to change
-# the interval or batch size for every repo at once - nothing else needs
-# editing.
-#
-# Capped to a couple of repos per run, running hourly rather than once a
-# week: most release.yaml workflows deploy to Maven Central using the same
-# account, and publishing a GitHub release fires that repo's release
-# workflow immediately. Publishing every pending draft in one run would
-# fire that many concurrent Central deploys from one account at once -
-# spreading them across hourly runs keeps each run's burst small.
-#
 name: Publish pending draft releases
 
 on:
   schedule:
-    - cron: "0 * * * 1"
+    - cron: "0 0 * * 0"
   workflow_dispatch:
 
 jobs:
@@ -23,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       GH_TOKEN: ${{ secrets.RELEASE_PAT }}
-      MAX_PUBLISH: 2
+      MAX_PUBLISH: 100
     steps:
       - name: Publish any pending draft releases
         shell: bash
