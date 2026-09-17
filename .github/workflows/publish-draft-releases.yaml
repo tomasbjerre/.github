@@ -40,7 +40,7 @@ jobs:
             published=$((published + 1))
             # Space out publishes so each repo's downstream release workflow
             # (publishing to Maven Central, npm, Docker Hub, etc.) doesn't
-            # fire all at once. 100 publishes * 60s = 100 min, well inside
+            # fire all at once. 100 publishes * 150s = 250 min, still inside
             # the 360-minute hard cap for GitHub-hosted runner jobs.
-            sleep 60
+            sleep 150
           done
