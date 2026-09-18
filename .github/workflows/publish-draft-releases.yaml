@@ -2,7 +2,7 @@ name: Publish pending draft releases
 
 on:
   schedule:
-    - cron: "0 0 * * 0"
+    - cron: "0 0 1 * *"
   workflow_dispatch:
 
 jobs:
@@ -42,5 +42,5 @@ jobs:
             # (publishing to Maven Central, npm, Docker Hub, etc.) doesn't
             # fire all at once. 100 publishes * 150s = 250 min, still inside
             # the 360-minute hard cap for GitHub-hosted runner jobs.
-            sleep 150
+            sleep 60
           done
