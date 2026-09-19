@@ -24,6 +24,6 @@ jobs:
           prompt: |
             Authenticate first: `gh auth login --with-token <<< "$GH_REPO_TOKEN"` then `gh auth setup-git` so `git push` uses it too.
 
-            Across every repo owned by `${{ github.repository_owner }}`, find open Renovate pull requests with failing CI checks. For each one: check out its existing branch (not a new one), diagnose the failure (lockfile drift, a breaking API change from the bump, stale snapshots, etc.), and push a minimal, verified fix straight to that branch with a Conventional Commits message. If you can't confidently fix it, leave a PR comment explaining why instead of guessing.
+            List target repos with `gh repo list ${{ github.repository_owner }} --no-archived --visibility public --limit 1000 --json nameWithOwner --jq ".[].nameWithOwner"` — this skips archived and private repos. Across those repos, find open Renovate pull requests with failing CI checks. For each one: check out its existing branch (not a new one), diagnose the failure (lockfile drift, a breaking API change from the bump, stale snapshots, etc.), and push a minimal, verified fix straight to that branch with a Conventional Commits message. If you can't confidently fix it, leave a PR comment explaining why instead of guessing.
 
             Never force-push, close PRs, rename/delete branches, or touch anything but the renovate branch itself. Finish with a short summary of what was fixed vs. commented on.
