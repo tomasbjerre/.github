@@ -100,3 +100,9 @@ jobs:
         with:
           name: build-${{ github.run_number }}-${{ matrix.os }}-${{ matrix.java }}
           path: ${{ github.workspace }}
+
+  lint-workflows:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: tomasbjerre/.github/.github/actions/workflow-linter@master

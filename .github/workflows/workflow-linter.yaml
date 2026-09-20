@@ -1,0 +1,23 @@
+#
+# Call it like:
+#
+# jobs:
+#  call-workflow-linter:
+#    uses: tomasbjerre/.github/.github/workflows/workflow-linter.yaml@master
+#
+#
+name: Workflow Linter
+on:
+  workflow_call:
+  pull_request:
+  push:
+
+jobs:
+  yamllint:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - uses: tomasbjerre/.github/.github/actions/workflow-linter@master

@@ -34,3 +34,9 @@ jobs:
         run: |
           java -version
           ./mvnw --no-transfer-progress --batch-mode verify
+
+  lint-workflows:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: tomasbjerre/.github/.github/actions/workflow-linter@master
