@@ -1,5 +1,14 @@
-name: Lint Workflows
+#
+# Call it like:
+#
+# jobs:
+#  call-workflow-linter:
+#    uses: tomasbjerre/.github/.github/workflows/bundle-workflow-linter.yaml@master
+#
+#
+name: Bundle Workflow Linter
 on:
+  workflow_call:
   pull_request:
   push:
 
