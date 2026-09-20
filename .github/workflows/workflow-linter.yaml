@@ -20,4 +20,4 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v7
 
-      - uses: tomasbjerre/.github/.github/actions/workflow-linter@master
+      - uses: ./.github/actions/workflow-linter
