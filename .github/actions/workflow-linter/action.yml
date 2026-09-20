@@ -1,0 +1,54 @@
+name: Lint workflow YAML
+description: >-
+  Lints the repository's .github/workflows and .github/actions YAML files
+  with yamllint. Assumes the repository has already been checked out.
+
+runs:
+  using: composite
+  steps:
+    - name: Create fake requirements.txt
+      shell: bash
+      run: echo "yamllint" > requirements.txt
+
+    - name: Set up Python and cache
+      uses: actions/setup-python@v7
+      with:
+        python-version: '3.x'
+        cache: 'pip'
+
+    - name: Install yamllint
+      shell: bash
+      run: pip install yamllint
+
+    - name: Create yamllint config
+      shell: bash
+      run: |
+        cat <<EOF > .yamllint.yml
+        extends: default
+        rules:
+          line-length:
+            max: 80
+            level: warning
+            allow-non-breakable-inline-mappings: true
+          indentation:
+            spaces: 2
+            indent-sequences: true
+          trailing-spaces: disable
+          document-start:
+            present: true
+          comments:
+            min-spaces-from-content: 2
+        EOF
+
+    - name: Lint YAML workflows
+      shell: bash
+      run: |
+        echo "Searching for YAML files..."
+        files=$(find .github/workflows .github/actions -type f \( -name "*.yml" -o -name "*.yaml" \))
+        if [ -z "$files" ]; then
+          echo "No YAML files found."
+          exit 0
+        fi
+        echo "Found files:"
+        echo "$files"
+        yamllint -c .yamllint.yml $files
