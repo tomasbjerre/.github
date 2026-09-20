@@ -44,7 +44,15 @@ runs:
       shell: bash
       run: |
         echo "Searching for YAML files..."
-        files=$(find .github/workflows .github/actions -type f \( -name "*.yml" -o -name "*.yaml" \))
+        dirs=()
+        for dir in .github/workflows .github/actions; do
+          [ -d "$dir" ] && dirs+=("$dir")
+        done
+        if [ ${#dirs[@]} -eq 0 ]; then
+          echo "No .github/workflows or .github/actions directory found."
+          exit 0
+        fi
+        files=$(find "${dirs[@]}" -type f \( -name "*.yml" -o -name "*.yaml" \))
         if [ -z "$files" ]; then
           echo "No YAML files found."
           exit 0
