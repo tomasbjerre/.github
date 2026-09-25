@@ -13,7 +13,9 @@
 # instrumented-test workflow, since capturing them tends to need
 # app-specific emulator setup this workflow doesn't know about. A caller
 # with no screenshots yet can skip uploading that artifact; the install
-# step below just does nothing when it's absent.
+# step below just does nothing when it's absent. An optional
+# "instruction-video" artifact (any single file) is attached to the GitHub
+# Release the same way, if present.
 #
 # Call it like:
 #
@@ -86,6 +88,18 @@ jobs:
         with:
           name: screenshots
           path: ${{ inputs.working-directory }}/app/src/main/play/listings/en-US/graphics/phone-screenshots-raw
+
+      # Optional: a caller's local instrumented-test workflow may also
+      # upload a short walkthrough recording as an "instruction-video"
+      # artifact (any single file) — attached to the GitHub Release below
+      # alongside the build outputs if present. Not required for a caller
+      # with no such recording.
+      - name: Download instruction video
+        uses: actions/download-artifact@v8
+        continue-on-error: true
+        with:
+          name: instruction-video
+          path: ${{ inputs.working-directory }}/instruction-video-raw
 
       - name: Install screenshots into the Play listing and docs
         run: |
@@ -225,6 +239,11 @@ jobs:
           for f in app/src/main/play/listings/en-US/graphics/phone-screenshots/*.jpg; do
             [ -f "$f" ] && UPLOAD_FILES+=("$f")
           done
+          if [ -d instruction-video-raw ]; then
+            for f in instruction-video-raw/*; do
+              [ -f "$f" ] && [ -s "$f" ] && UPLOAD_FILES+=("$f")
+            done
+          fi
           if [ ${#UPLOAD_FILES[@]} -gt 0 ]; then
             gh release upload "$TAG" "${UPLOAD_FILES[@]}" --clobber -R "${{ github.repository }}"
           else
