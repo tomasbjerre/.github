@@ -1,0 +1,45 @@
+#
+# Reusable release workflow for a native Android app published to Google
+# Play. Signs and publishes it via Gradle Play Publisher. Pair it with your
+# own local instrumented-test workflow for screenshots (kept local since
+# emulator setup tends to be app-specific):
+#
+# name: Release Android
+#
+# on:
+#   release:
+#     types: [published]
+#
+# permissions:
+#   contents: write
+#
+# jobs:
+#   screenshots:
+#     uses: ./.github/workflows/instrumented_android.yml
+#   release:
+#     needs: screenshots
+#     uses: tomasbjerre/.github/.github/workflows/bundle-android-release.yaml@master
+#     secrets: inherit
+#
+name: Bundle Android Release
+
+on:
+  workflow_call:
+    inputs:
+      working-directory:
+        description: "Directory containing the Android Gradle project"
+        required: false
+        default: "android"
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  call-android-release:
+    permissions:
+      contents: write
+    uses: tomasbjerre/.github/.github/workflows/android-release.yaml@master
+    with:
+      working-directory: ${{ inputs.working-directory }}
+    secrets: inherit

@@ -1,0 +1,81 @@
+#
+# CI for a native Android (Gradle) project: SDK setup, Kotlin/format
+# lint (ktlint/detekt/Spotless), Android Lint, unit tests, and a debug
+# assemble. Deliberately does NOT run instrumented/emulator tests — those
+# tend to need app-specific setup (seeded data, simulated sensors, a
+# particular emulator profile) that varies too much to generalize here.
+# Callers that have instrumented tests should run their own local
+# instrumented-test workflow as a separate job alongside this one (see
+# bundle-android-ci.yaml's header comment).
+#
+name: Android CI
+
+on:
+  workflow_call:
+    inputs:
+      working-directory:
+        description: "Directory containing the Android Gradle project"
+        required: false
+        default: "android"
+        type: string
+
+defaults:
+  run:
+    working-directory: ${{ inputs.working-directory }}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up JDK
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          # The action's default "tools" package no longer exists in the SDK repo.
+          packages: platform-tools
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Spotless (formatting outside Kotlin sources)
+        run: ./gradlew spotlessCheck
+
+      - name: ktlint
+        run: ./gradlew ktlintCheck
+
+      - name: detekt
+        run: ./gradlew detekt
+
+      - name: Android Lint
+        run: ./gradlew lintDebug
+
+      - name: Unit tests
+        run: ./gradlew testDebugUnitTest
+
+      - name: Violations summary
+        if: always()
+        run: ./gradlew violations
+
+      - name: Assemble debug APK
+        run: ./gradlew assembleDebug
+
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: reports
+          path: ${{ inputs.working-directory }}/app/build/reports
+          retention-days: 14
+
+  lint-workflows:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: tomasbjerre/.github/.github/actions/workflow-linter@master

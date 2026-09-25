@@ -1,0 +1,27 @@
+#
+# Call it alongside your own local instrumented-test workflow (kept local
+# since emulator setup tends to be app-specific — GPS simulation, seeded
+# data, a particular API level/camera flag, etc.):
+#
+# jobs:
+#   ci:
+#     uses: tomasbjerre/.github/.github/workflows/bundle-android-ci.yaml@master
+#   instrumented:
+#     uses: ./.github/workflows/instrumented_android.yml
+#
+name: Bundle Android CI
+
+on:
+  workflow_call:
+    inputs:
+      working-directory:
+        description: "Directory containing the Android Gradle project"
+        required: false
+        default: "android"
+        type: string
+
+jobs:
+  call-android-ci:
+    uses: tomasbjerre/.github/.github/workflows/android-ci.yaml@master
+    with:
+      working-directory: ${{ inputs.working-directory }}
