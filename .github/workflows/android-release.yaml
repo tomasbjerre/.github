@@ -55,9 +55,6 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-    defaults:
-      run:
-        working-directory: ${{ inputs.working-directory }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -102,6 +99,7 @@ jobs:
           path: ${{ inputs.working-directory }}/instruction-video-raw
 
       - name: Install screenshots into the Play listing and docs
+        working-directory: ${{ inputs.working-directory }}
         run: |
           RAW_DIR="app/src/main/play/listings/en-US/graphics/phone-screenshots-raw"
           if [ -d "$RAW_DIR" ] && [ -n "$(ls -A "$RAW_DIR" 2>/dev/null)" ]; then
@@ -130,6 +128,7 @@ jobs:
           rm -rf "$RAW_DIR"
 
       - name: Write this release's notes (Play)
+        working-directory: ${{ inputs.working-directory }}
         run: |
           TAG="${{ github.event.release.tag_name }}"
           PREV_TAG=$(git tag --sort=-v:refname | grep -vFx "$TAG" | head -1) || true
@@ -142,6 +141,7 @@ jobs:
 
       - name: Commit screenshots and release notes (local only - not pushed yet)
         id: commit-screenshots
+        working-directory: ${{ inputs.working-directory }}
         run: |
           git add app/src/main/play ../docs/screenshots
           if git diff --staged --quiet; then
@@ -160,6 +160,7 @@ jobs:
       # that.
       - name: Push screenshots and release notes
         if: steps.commit-screenshots.outputs.committed == 'true'
+        working-directory: ${{ inputs.working-directory }}
         run: git push origin HEAD:${{ github.event.repository.default_branch }}
 
       # Signing config is resolved from ANDROID_KEYSTORE_* env vars at Gradle
@@ -174,6 +175,7 @@ jobs:
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
           ANDROID_PUBLISHER_CREDENTIALS: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+        working-directory: ${{ inputs.working-directory }}
         run: |
           set +e
           ./gradlew -Pversion="${{ github.event.release.tag_name }}" assembleRelease bundleRelease publishReleaseBundle publishListing \
@@ -226,6 +228,7 @@ jobs:
         if: always()
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        working-directory: ${{ inputs.working-directory }}
         run: |
           TAG="${{ github.event.release.tag_name }}"
           UPLOAD_FILES=()

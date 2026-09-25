@@ -19,10 +19,6 @@ on:
         default: "android"
         type: string
 
-defaults:
-  run:
-    working-directory: ${{ inputs.working-directory }}
-
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -45,25 +41,32 @@ jobs:
         uses: gradle/actions/setup-gradle@v6
 
       - name: Spotless (formatting outside Kotlin sources)
+        working-directory: ${{ inputs.working-directory }}
         run: ./gradlew spotlessCheck
 
       - name: ktlint
+        working-directory: ${{ inputs.working-directory }}
         run: ./gradlew ktlintCheck
 
       - name: detekt
+        working-directory: ${{ inputs.working-directory }}
         run: ./gradlew detekt
 
       - name: Android Lint
+        working-directory: ${{ inputs.working-directory }}
         run: ./gradlew lintDebug
 
       - name: Unit tests
+        working-directory: ${{ inputs.working-directory }}
         run: ./gradlew testDebugUnitTest
 
       - name: Violations summary
         if: always()
+        working-directory: ${{ inputs.working-directory }}
         run: ./gradlew violations
 
       - name: Assemble debug APK
+        working-directory: ${{ inputs.working-directory }}
         run: ./gradlew assembleDebug
 
       - name: Upload test reports
