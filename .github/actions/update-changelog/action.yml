@@ -1,9 +1,10 @@
 name: Update CHANGELOG.md
 description: >-
-  Checks out master (the caller may currently have a detached checkout of a
-  release tag), renders the changelog entry between the previous tag and the
-  given tag using git-changelog-command-line, prepends it to CHANGELOG.md, and
-  commits and pushes the result to master if anything changed.
+  Checks out the repository's default branch (the caller may currently have
+  a detached checkout of a release tag), renders the changelog entry between
+  the previous tag and the given tag using git-changelog-command-line,
+  prepends it to CHANGELOG.md, and commits and pushes the result to that
+  branch if anything changed.
 
 inputs:
   tag:
@@ -23,7 +24,7 @@ runs:
   steps:
     - uses: actions/checkout@v7
       with:
-        ref: master
+        ref: ${{ github.event.repository.default_branch }}
         fetch-depth: 0
         fetch-tags: true
         token: ${{ inputs.token || github.token }}
@@ -55,5 +56,5 @@ runs:
         else
           git add CHANGELOG.md
           git commit -m "chore(changelog): updating changelog"
-          git push origin master
+          git push origin "HEAD:${{ github.event.repository.default_branch }}"
         fi

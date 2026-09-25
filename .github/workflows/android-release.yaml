@@ -1,0 +1,256 @@
+#
+# Signs and publishes an Android app's release build to the Google Play
+# Console, using Gradle Play Publisher (com.github.triplet.play, applied
+# in the caller's android/app/build.gradle.kts).
+#
+# Intended to run when a drafted GitHub Release (see bundle-draft-release.yaml
+# and the org-wide scheduled publish-draft-releases.yaml) is published, so
+# the release tag already exists - this workflow just checks it out, sets
+# the project version to match it, signs, and publishes.
+#
+# Expects a "screenshots" artifact (PNG files) to already have been
+# uploaded earlier in the same run - e.g. by the caller's own local
+# instrumented-test workflow, since capturing them tends to need
+# app-specific emulator setup this workflow doesn't know about. A caller
+# with no screenshots yet can skip uploading that artifact; the install
+# step below just does nothing when it's absent. An optional
+# "instruction-video" artifact (any single file) is attached to the GitHub
+# Release the same way, if present.
+#
+# Call it like:
+#
+# name: Release Android
+#
+# on:
+#   release:
+#     types: [published]
+#
+# permissions:
+#   contents: write
+#
+# jobs:
+#   screenshots:
+#     uses: ./.github/workflows/instrumented_android.yml
+#   release:
+#     needs: screenshots
+#     uses: tomasbjerre/.github/.github/workflows/bundle-android-release.yaml@master
+#     secrets: inherit
+#
+name: Android Release
+
+on:
+  workflow_call:
+    inputs:
+      working-directory:
+        description: "Directory containing the Android Gradle project"
+        required: false
+        default: "android"
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    defaults:
+      run:
+        working-directory: ${{ inputs.working-directory }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # Explicit ref: for a `release: published` event, github.ref does
+          # not reliably resolve to a proper branch the way it does for
+          # workflow_dispatch.
+          ref: ${{ github.event.release.tag_name }}
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Set up JDK
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Download screenshots
+        uses: actions/download-artifact@v8
+        continue-on-error: true
+        with:
+          name: screenshots
+          path: ${{ inputs.working-directory }}/app/src/main/play/listings/en-US/graphics/phone-screenshots-raw
+
+      # Optional: a caller's local instrumented-test workflow may also
+      # upload a short walkthrough recording as an "instruction-video"
+      # artifact (any single file) — attached to the GitHub Release below
+      # alongside the build outputs if present. Not required for a caller
+      # with no such recording.
+      - name: Download instruction video
+        uses: actions/download-artifact@v8
+        continue-on-error: true
+        with:
+          name: instruction-video
+          path: ${{ inputs.working-directory }}/instruction-video-raw
+
+      - name: Install screenshots into the Play listing and docs
+        run: |
+          RAW_DIR="app/src/main/play/listings/en-US/graphics/phone-screenshots-raw"
+          if [ -d "$RAW_DIR" ] && [ -n "$(ls -A "$RAW_DIR" 2>/dev/null)" ]; then
+            # screencap only writes PNG, and an uncompressed PNG of a full-color
+            # capture runs several MB - re-encoded as JPEG here since these land
+            # in git history on every release and the visual difference is
+            # negligible. -strip drops PNG metadata JPEG has no use for.
+            sudo apt-get update && sudo apt-get install -y imagemagick
+            mkdir -p app/src/main/play/listings/en-US/graphics/phone-screenshots
+            rm -f app/src/main/play/listings/en-US/graphics/phone-screenshots/*.jpg
+            mkdir -p ../docs/screenshots
+            for f in "$RAW_DIR"/*.png; do
+              [ -e "$f" ] || continue
+              name=$(basename "$f" .png)
+              convert "$f" -strip -quality 87 "../docs/screenshots/$name.jpg"
+              # Only numbered captures (1-…, 2-…) go to the Play listing: Play
+              # caps it at 8 phone screenshots - name any extra capture without
+              # a number prefix to keep it in docs/screenshots only.
+              case "$name" in
+                [0-9]-*) cp "../docs/screenshots/$name.jpg" app/src/main/play/listings/en-US/graphics/phone-screenshots/ ;;
+              esac
+            done
+          else
+            echo "No screenshots artifact found - skipping."
+          fi
+          rm -rf "$RAW_DIR"
+
+      - name: Write this release's notes (Play)
+        run: |
+          TAG="${{ github.event.release.tag_name }}"
+          PREV_TAG=$(git tag --sort=-v:refname | grep -vFx "$TAG" | head -1) || true
+          echo "${{ github.event.repository.name }} $TAG" > app/src/main/play/release-notes/en-US/default.txt
+          if [ -n "$PREV_TAG" ]; then
+            git log "${PREV_TAG}..${TAG}" --pretty=format:'- %s' | head -c 450 >> app/src/main/play/release-notes/en-US/default.txt || true
+          fi
+
+      - uses: tomasbjerre/.github/.github/actions/git-bot-identity@master
+
+      - name: Commit screenshots and release notes (local only - not pushed yet)
+        id: commit-screenshots
+        run: |
+          git add app/src/main/play ../docs/screenshots
+          if git diff --staged --quiet; then
+            echo "No screenshot changes to commit."
+            echo "committed=false" >> "$GITHUB_OUTPUT"
+          else
+            git commit -m "chore(android): update screenshots and play listing"
+            echo "committed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      # Pushed here, before the Play publish attempt below, not after: Play
+      # publish can fail for reasons that have nothing to do with the build
+      # (e.g. a brand-new app whose store listing/content rating/data safety
+      # form isn't fully completed in the Play Console yet - a required
+      # one-time manual step). No need to lose the screenshot commit to retry
+      # that.
+      - name: Push screenshots and release notes
+        if: steps.commit-screenshots.outputs.committed == 'true'
+        run: git push origin HEAD:${{ github.event.repository.default_branch }}
+
+      # Signing config is resolved from ANDROID_KEYSTORE_* env vars at Gradle
+      # *evaluation* time (see the caller's android/app/build.gradle.kts), not
+      # persisted across invocations. Building and publishing in one
+      # ./gradlew call, sharing one evaluation, keeps the bundle actually
+      # signed all the way to upload.
+      - name: Build signed release bundle and APK, then publish to Play Console
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          ANDROID_PUBLISHER_CREDENTIALS: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+        run: |
+          set +e
+          ./gradlew -Pversion="${{ github.event.release.tag_name }}" assembleRelease bundleRelease publishReleaseBundle publishListing \
+            2>&1 | tee gradle-publish.log
+          GRADLE_EXIT_CODE=${PIPESTATUS[0]}
+          set -e
+
+          if [ "$GRADLE_EXIT_CODE" -eq 0 ]; then
+            exit 0
+          fi
+
+          # Gradle Play Publisher's commitEdit... task finalizes the Play
+          # "edit" that publishReleaseBundle/publishListing staged changes
+          # into - and Play rejects that commit until the app has a first
+          # public version, which is a one-time manual step in Play Console,
+          # not something this workflow can do. Every other task (the signed
+          # APK/bundle build, and staging the bundle and listing into the
+          # edit) still succeeds, so treat *only* this known, expected
+          # failure as non-fatal here - anything else should still fail the
+          # build.
+          FAILED_TASKS=$(grep -oE '^> Task :\S+ FAILED$' gradle-publish.log \
+            | sed -E 's/^> Task (:\S+) FAILED$/\1/' | sort -u)
+          UNEXPECTED_FAILURES=$(printf '%s\n' "$FAILED_TASKS" | grep -vE ':commitEditFor' || true)
+
+          if [ -n "$FAILED_TASKS" ] && [ -z "$UNEXPECTED_FAILURES" ]; then
+            echo "::warning::A commitEdit task failed as expected - see job log for details."
+            echo "########################################################################"
+            echo "# A commitEdit task FAILED (expected)"
+            echo "#"
+            echo "# This Gradle Play Publisher task will keep failing until the first"
+            echo "# public version of this app is published to Google Play - a one-time"
+            echo "# manual step in Play Console. Once that's done, this task will start"
+            echo "# succeeding automatically."
+            echo "#"
+            echo "# The signed APK/bundle build and the Play bundle/listing upload"
+            echo "# otherwise completed. Treating this build as green and continuing."
+            echo "########################################################################"
+            exit 0
+          fi
+
+          echo "Gradle failed on unexpected task(s), not just a commitEdit task:"
+          printf '%s\n' "$FAILED_TASKS"
+          exit "$GRADLE_EXIT_CODE"
+
+      # if: always() so whatever of the APK/bundle actually got built still
+      # lands on the GitHub Release even if the Play publish step above
+      # failed - each file is checked for existence first since a failure
+      # earlier in that step can mean the APK/bundle were never produced.
+      - name: Attach the release build to the GitHub Release
+        if: always()
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ github.event.release.tag_name }}"
+          UPLOAD_FILES=()
+          [ -f app/build/outputs/apk/release/app-release.apk ] &&
+            UPLOAD_FILES+=(app/build/outputs/apk/release/app-release.apk)
+          [ -f app/build/outputs/bundle/release/app-release.aab ] &&
+            UPLOAD_FILES+=(app/build/outputs/bundle/release/app-release.aab)
+          # Screenshots are also committed to git (Play listing + docs/screenshots) -
+          # attaching them here too just makes them downloadable straight from the
+          # release, without needing to check out the repo.
+          for f in app/src/main/play/listings/en-US/graphics/phone-screenshots/*.jpg; do
+            [ -f "$f" ] && UPLOAD_FILES+=("$f")
+          done
+          if [ -d instruction-video-raw ]; then
+            for f in instruction-video-raw/*; do
+              [ -f "$f" ] && [ -s "$f" ] && UPLOAD_FILES+=("$f")
+            done
+          fi
+          if [ ${#UPLOAD_FILES[@]} -gt 0 ]; then
+            gh release upload "$TAG" "${UPLOAD_FILES[@]}" --clobber -R "${{ github.repository }}"
+          else
+            echo "::warning::Nothing to attach to ${TAG}."
+          fi
+
+      - uses: tomasbjerre/.github/.github/actions/update-changelog@master
+        with:
+          tag: ${{ github.event.release.tag_name }}
+          token: ${{ secrets.RELEASE_PAT }}
