@@ -11,36 +11,43 @@ jobs:
     env:
       GH_TOKEN: ${{ secrets.RELEASE_PAT }}
       MAX_PUBLISH: 100
+
     steps:
-      - name: Publish any pending draft releases
+      - name: Publish pending draft releases
         shell: bash
         run: |
           repos=$(gh api users/tomasbjerre/repos --paginate --jq '.[].name')
           published=0
+          checked=0
+
           for repo in $repos; do
             if [ "$published" -ge "$MAX_PUBLISH" ]; then
-              echo "Reached MAX_PUBLISH=$MAX_PUBLISH for this run, stopping."
+              echo "Limit reached: $MAX_PUBLISH releases"
               break
             fi
-            echo "=== tomasbjerre/$repo ==="
-            draft_id=$(gh api "repos/tomasbjerre/$repo/releases" --jq '[.[] | select(.draft==true)] | .[0].id // empty')
+
+            checked=$((checked + 1))
+
+            draft_id=$(gh api "repos/tomasbjerre/$repo/releases" \
+              --paginate \
+              --jq '[.[] | select(.draft == true)] | .[0].id // empty')
+
             if [ -z "$draft_id" ]; then
-              echo "No draft release pending"
               continue
             fi
-            echo "Publishing draft release id=$draft_id"
-            # Two separate calls: draft=false and make_latest=true in the same
-            # PATCH silently fails to mark latest - GitHub's API evaluates
-            # make_latest's "drafts cannot be latest" rule against the
-            # pre-transition state within a single request. A follow-up call,
-            # once the release is already persisted as non-draft, applies it
-            # correctly.
-            gh api --method PATCH "repos/tomasbjerre/$repo/releases/$draft_id" -f draft=false
-            gh api --method PATCH "repos/tomasbjerre/$repo/releases/$draft_id" -f make_latest=true
+
+            echo "Publishing: $repo (release $draft_id)"
+
+            gh api --method PATCH "repos/tomasbjerre/$repo/releases/$draft_id" \
+              -f draft=false >/dev/null
+
+            gh api --method PATCH "repos/tomasbjerre/$repo/releases/$draft_id" \
+              -f make_latest=true >/dev/null
+
             published=$((published + 1))
-            # Space out publishes so each repo's downstream release workflow
-            # (publishing to Maven Central, npm, Docker Hub, etc.) doesn't
-            # fire all at once. 100 publishes * 150s = 250 min, still inside
-            # the 360-minute hard cap for GitHub-hosted runner jobs.
+
             sleep 60
           done
+
+          echo ""
+          echo "Done: published $published release(s), checked $checked public repo(s)."
