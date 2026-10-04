@@ -1,0 +1,97 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "onboarding": false,
+  "automerge": true,
+  "automergeType": "pr",
+  "platformAutomerge": true,
+  "semanticCommits": "enabled",
+  "recreateWhen": "always",
+  "minimumReleaseAge": "5 days",
+  "packageRules": [
+    {
+      "matchManagers": [
+        "gradle",
+        "maven"
+      ],
+      "matchPackageNames": [
+        "se.bjurr*"
+      ],
+      "minimumReleaseAge": "0 days"
+    },
+    {
+      "description": [
+        "AGP has a minimum required Gradle version that climbs independently of AGP's own version number. Grouped with the wrapper so a bump never lands AGP ahead of a Gradle it needs. Grouping only combines updates that are due at the same time — the minimumReleaseAge override below is what keeps Gradle from being the thing an AGP bump waits on."
+      ],
+      "matchPackageNames": [
+        "com.android.application",
+        "gradle"
+      ],
+      "groupName": "Android Gradle Plugin + Gradle wrapper"
+    },
+    {
+      "description": [
+        "Gradle releases are stable on arrival, so the wrapper skips the default minimumReleaseAge and is essentially always at Gradle's latest."
+      ],
+      "matchPackageNames": [
+        "gradle"
+      ],
+      "minimumReleaseAge": "0 days"
+    },
+    {
+      "description": [
+        "KSP's version is only valid for one specific Kotlin version, and the Compose compiler plugin must match the Kotlin version exactly. Grouped so a bump proposes all three in one PR instead of breaking the build."
+      ],
+      "matchPackageNames": [
+        "org.jetbrains.kotlin.android",
+        "org.jetbrains.kotlin.plugin.compose",
+        "com.google.devtools.ksp"
+      ],
+      "groupName": "Kotlin toolchain (Kotlin, Compose compiler, KSP)"
+    },
+    {
+      "description": [
+        "All androidx.room artifacts are released together and must be on the same version — Google requires this explicitly."
+      ],
+      "matchPackageNames": [
+        "androidx.room:room-runtime",
+        "androidx.room:room-ktx",
+        "androidx.room:room-compiler"
+      ],
+      "groupName": "Room (runtime, ktx, compiler)"
+    },
+    {
+      "description": [
+        "CameraX recommends keeping camera-core/camera2/lifecycle/view on the same version."
+      ],
+      "matchPackageNames": [
+        "androidx.camera:camera-core",
+        "androidx.camera:camera-camera2",
+        "androidx.camera:camera-lifecycle",
+        "androidx.camera:camera-view"
+      ],
+      "groupName": "CameraX (core, camera2, lifecycle, view)"
+    },
+    {
+      "description": [
+        "activity-compose 1.13.0 breaks `./gradlew lintDebug` with a dependency resolution conflict (androidx.concurrent:concurrent-futures strict-version mismatch via androidx.test). `recreateWhen: never` is needed because the `recreateWhen: always` above would otherwise reopen a closed PR from its still-existing branch even with `enabled: false`. Re-enable once a version resolves cleanly against the pinned androidx.test artifacts."
+      ],
+      "matchPackageNames": [
+        "androidx.activity:activity-compose"
+      ],
+      "enabled": false,
+      "recreateWhen": "never"
+    },
+    {
+      "description": [
+        "Maven 3.10.0 changed how it lays out the staged bundle central-publishing-maven-plugin zips up for Maven Central, which that plugin's bundle validator now rejects ('Bundle has content that does NOT have a .pom file'). Reported upstream at mavenplugins/central-publishing-maven-plugin#78. Raise this ceiling once a Maven/plugin release fixes the interaction."
+      ],
+      "matchManagers": [
+        "maven-wrapper"
+      ],
+      "matchPackageNames": [
+        "maven"
+      ],
+      "allowedVersions": "<3.10.0"
+    }
+  ]
+}
