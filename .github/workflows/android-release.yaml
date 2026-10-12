@@ -159,8 +159,16 @@ jobs:
       # form isn't fully completed in the Play Console yet - a required
       # one-time manual step). No need to lose the screenshot commit to retry
       # that.
+      #
+      # continue-on-error: this push has been seen to fail on a transient
+      # GitHub-side error ("fatal error in commit_refs") unrelated to the
+      # release itself - that shouldn't block building and publishing the
+      # actual app update below. Worst case, this release's screenshot/listing
+      # update is lost (the local commit above never reaches the default
+      # branch) and gets picked up by the next release instead.
       - name: Push screenshots and release notes
         if: steps.commit-screenshots.outputs.committed == 'true'
+        continue-on-error: true
         working-directory: ${{ inputs.working-directory }}
         run: git push origin HEAD:${{ github.event.repository.default_branch }}
 
